@@ -152,6 +152,19 @@ export function isLevelComplete(state: GameState, capacity: number): boolean {
   );
 }
 
+/**
+ * Generate a scrambled-but-solvable level by starting from the solved
+ * arrangement and repeatedly peeling a *random-length* slice off the top
+ * of a random bottle and stacking it onto a random OTHER bottle,
+ * regardless of that bottle's current top color.
+ *
+ * This is the reverse of a legal pour, so undoing every step (in reverse
+ * order) is always a legal sequence of forward moves back to the solved
+ * state — guaranteeing the puzzle is solvable — while still producing
+ * genuinely mixed bottles (unlike naively replaying "forward" pours from
+ * a fully-solved state, which can only ever relocate whole same-color
+ * bottles and therefore never actually mixes anything).
+ */
 export function generateLevel(level: number): GameState {
   const { capacity, colors, empty } = getLevelConfig(level);
   const palette = getPalette(colors);
@@ -160,59 +173,39 @@ export function generateLevel(level: number): GameState {
   const bottles: Bottle[] = palette.map((c) => Array(capacity).fill(c));
   for (let i = 0; i < empty; i++) bottles.push([]);
 
-  // Mix by applying random valid forward moves from the solved state.
-  // The resulting state is guaranteed solvable by reversing those moves.
   const mixMoves = Math.min(300, 60 + level * 3);
-  let previousMove: PourMove | null = null;
 
   for (let i = 0; i < mixMoves; i++) {
-    const moves = getValidMoves(bottles, capacity);
-    if (moves.length === 0) break;
+    const sourceCandidates = bottles
+      .map((_, idx) => idx)
+      .filter((idx) => bottles[idx].length > 0);
+    if (sourceCandidates.length === 0) break;
 
-    // Filter out immediate undo of the previous move to encourage mixing.
-    const candidates: PourMove[] = previousMove
-      ? moves.filter(
-          (m) =>
-            !(m.from === previousMove!.to && m.to === previousMove!.from)
-        )
-      : moves;
+    const from = sourceCandidates[Math.floor(rng() * sourceCandidates.length)];
+    const source = bottles[from];
+    const run = getTopRunLength(source);
 
-    const pool: PourMove[] = candidates.length > 0 ? candidates : moves;
-    const move: PourMove = pool[Math.floor(rng() * pool.length)];
-    applyMoveInPlace(bottles, move, capacity);
-    previousMove = move;
-  }
+    const destCandidates = bottles
+      .map((_, idx) => idx)
+      .filter((idx) => idx !== from && bottles[idx].length < capacity);
+    if (destCandidates.length === 0) continue;
 
-  // If by chance the level is already solved, do a few extra moves.
-  if (isLevelComplete(bottles, capacity)) {
-    for (let i = 0; i < 10; i++) {
-      const moves = getValidMoves(bottles, capacity);
-      if (moves.length === 0) break;
-      const move = moves[Math.floor(rng() * moves.length)];
-      applyMoveInPlace(bottles, move, capacity);
+    const to = destCandidates[Math.floor(rng() * destCandidates.length)];
+    const dest = bottles[to];
+    const space = capacity - dest.length;
+    const maxAmount = Math.min(run, space);
+    if (maxAmount <= 0) continue;
+
+    // Random amount from 1..maxAmount (NOT always the full run) is what
+    // actually produces mixed bottles instead of whole-bottle relocation.
+    const amount = 1 + Math.floor(rng() * maxAmount);
+
+    for (let k = 0; k < amount; k++) {
+      dest.push(source.pop()!);
     }
   }
 
   return bottles;
-}
-
-function applyMoveInPlace(
-  state: GameState,
-  move: PourMove,
-  capacity: number
-): void {
-  const source = state[move.from];
-  const dest = state[move.to];
-  let poured = 0;
-  while (
-    poured < move.amount &&
-    source.length > 0 &&
-    getTopColor(source) === move.color &&
-    dest.length < capacity
-  ) {
-    dest.push(source.pop()!);
-    poured++;
-  }
 }
 
 export function findHint(state: GameState, capacity: number): PourMove | null {

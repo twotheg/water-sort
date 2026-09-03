@@ -1,0 +1,170 @@
+@import "tailwindcss";
+
+:root {
+  --bottle-width: 52px;
+  --bottle-height: 180px;
+  --segment-height: 36px;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --bottle-width: 64px;
+    --bottle-height: 220px;
+    --segment-height: 44px;
+  }
+}
+
+html,
+body {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.glass-bottle {
+  position: relative;
+  width: var(--bottle-width);
+  height: var(--bottle-height);
+  border-radius: 9999px;
+  border: 3px solid rgba(255, 255, 255, 0.35);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  box-shadow:
+    inset 0 0 18px rgba(255, 255, 255, 0.12),
+    0 8px 24px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.glass-bottle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.22) 0%,
+    rgba(255, 255, 255, 0) 35%,
+    rgba(255, 255, 255, 0) 65%,
+    rgba(255, 255, 255, 0.12) 100%
+  );
+}
+
+.glass-bottle.selected {
+  transform: translateY(-10px) scale(1.04);
+  box-shadow:
+    0 0 0 3px rgba(14, 165, 233, 0.6),
+    0 12px 32px rgba(14, 165, 233, 0.35);
+}
+
+.glass-bottle.completed {
+  animation: bottle-glow 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes bottle-glow {
+  from {
+    box-shadow:
+      inset 0 0 18px rgba(255, 255, 255, 0.12),
+      0 8px 24px rgba(0, 0, 0, 0.35),
+      0 0 12px rgba(250, 204, 21, 0.4);
+  }
+  to {
+    box-shadow:
+      inset 0 0 22px rgba(255, 255, 255, 0.18),
+      0 8px 24px rgba(0, 0, 0, 0.35),
+      0 0 28px rgba(250, 204, 21, 0.85);
+  }
+}
+
+.liquid-segment {
+  height: var(--segment-height);
+  width: 100%;
+  position: relative;
+  transition: background-color 200ms ease;
+}
+
+.liquid-segment::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 40%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.25) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  pointer-events: none;
+}
+
+.pour-particle {
+  position: absolute;
+  width: 8px;
+  border-radius: 9999px;
+  animation: pour-stream 280ms ease-in forwards;
+  pointer-events: none;
+}
+
+@keyframes pour-stream {
+  0% {
+    height: 0;
+    opacity: 1;
+  }
+  100% {
+    height: 140px;
+    opacity: 0.8;
+  }
+}
+
+.level-clear-enter {
+  animation: pop-in 360ms cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.7) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.star-spin {
+  animation: star-spin 1.2s linear infinite;
+}
+
+@keyframes star-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.confetti {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  pointer-events: none;
+  animation: confetti-fall 2.5s ease-out forwards;
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-10vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(110vh) rotate(720deg);
+    opacity: 0;
+  }
+}

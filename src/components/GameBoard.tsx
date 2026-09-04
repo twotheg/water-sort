@@ -21,6 +21,7 @@ const HIGHEST_LEVEL_KEY = "water-sort-highest-level";
 const SOUND_KEY = "water-sort-sound";
 const VIBRATION_KEY = "water-sort-vibration";
 const TOTAL_LEVELS = 300;
+const POUR_ANIM_MS = 480;
 
 function getOrCreateDeviceId(): string {
   if (typeof window === "undefined") return "";
@@ -46,7 +47,9 @@ export function GameBoard() {
   const [pushSupported, setPushSupported] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [hintMove, setHintMove] = useState<PourMove | null>(null);
+  const [pourInfo, setPourInfo] = useState<{ from: number; to: number } | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pourTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const confettiContainerRef = useRef<HTMLDivElement | null>(null);
   const isInitialMount = useRef(true);
@@ -96,6 +99,12 @@ export function GameBoard() {
       saveProgress();
     }
   }, [state, capacity, isClear, level, moves, timeSeconds]);
+
+  useEffect(() => {
+    return () => {
+      if (pourTimeoutRef.current) clearTimeout(pourTimeoutRef.current);
+    };
+  }, []);
 
   const playPourSound = useCallback(() => {
     if (!soundEnabled || typeof window === "undefined") return;
@@ -226,6 +235,12 @@ export function GameBoard() {
 
       const move: PourMove = { from: selectedIndex, to: index, amount, color };
       const next = applyMove(state, move, capacity);
+
+      // Play a brief "tilt and pour" animation on the source/dest bottles.
+      if (pourTimeoutRef.current) clearTimeout(pourTimeoutRef.current);
+      setPourInfo({ from: selectedIndex, to: index });
+      pourTimeoutRef.current = setTimeout(() => setPourInfo(null), POUR_ANIM_MS);
+
       setState(next);
       setMoves((m) => m + 1);
       setSelectedIndex(null);
@@ -251,6 +266,7 @@ export function GameBoard() {
     setIsClear(false);
     setSelectedIndex(null);
     setHintMove(null);
+    setPourInfo(null);
   }, [level]);
 
   const goToLevel = useCallback((nextLevel: number) => {
@@ -262,6 +278,7 @@ export function GameBoard() {
     setIsClear(false);
     setSelectedIndex(null);
     setHintMove(null);
+    setPourInfo(null);
     setShowLevelSelect(false);
     setShowMenu(false);
   }, []);
@@ -317,7 +334,7 @@ export function GameBoard() {
 
   const spawnConfetti = useCallback(() => {
     if (!confettiContainerRef.current) return;
-    const colors = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#d946ef"];
+    const colors = ["#f43f5e", "#f97316", "#facc15", "#22c55e", "#06b6d4", "#3b82f6", "#a855f7", "#ec4899"];
     for (let i = 0; i < 60; i++) {
       const el = document.createElement("div");
       el.className = "confetti";
@@ -384,6 +401,8 @@ export function GameBoard() {
                 capacity={capacity}
                 isSelected={selectedIndex === i}
                 isCompleted={completedSet.has(i)}
+                isPouring={pourInfo?.from === i}
+                isReceiving={pourInfo?.to === i}
                 onClick={() => handleBottleClick(i)}
                 index={i}
               />

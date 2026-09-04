@@ -10,16 +10,16 @@ export interface LevelConfig {
 }
 
 const PALETTE: ColorCode[] = [
-  "#ef4444", // red-500
-  "#f97316", // orange-500
-  "#eab308", // yellow-500
-  "#22c55e", // green-500
-  "#06b6d4", // cyan-500
-  "#3b82f6", // blue-500
-  "#8b5cf6", // violet-500
-  "#d946ef", // fuchsia-500
-  "#f43f5e", // rose-500
-  "#14b8a6", // teal-500
+  "#f43f5e", // rose
+  "#f97316", // orange
+  "#facc15", // yellow
+  "#22c55e", // green
+  "#06b6d4", // cyan
+  "#3b82f6", // blue
+  "#a855f7", // purple
+  "#ec4899", // pink/magenta
+  "#84cc16", // lime
+  "#14b8a6", // teal
 ];
 
 export function mulberry32(seed: number) {
@@ -31,37 +31,30 @@ export function mulberry32(seed: number) {
   };
 }
 
+// Default board is 9 bottles: 7 colors + 2 empty (matches the reference
+// look), then scales up in colors/capacity as the level increases.
 export function getLevelConfig(level: number): LevelConfig {
   let colors: number;
-  let empty: number;
+  let empty = 2;
+  let capacity = 5;
 
-  if (level <= 20) {
-    colors = 2;
-    empty = 1;
-  } else if (level <= 50) {
-    colors = 3;
-    empty = 1;
-  } else if (level <= 100) {
-    colors = 3;
-    empty = 2;
-  } else if (level <= 150) {
-    colors = 4;
-    empty = 2;
-  } else if (level <= 200) {
-    colors = 5;
-    empty = 2;
-  } else if (level <= 250) {
-    colors = 6;
-    empty = 2;
-  } else if (level <= 280) {
+  if (level <= 50) {
     colors = 7;
-    empty = 2;
-  } else {
+  } else if (level <= 100) {
     colors = 8;
-    empty = 2;
+  } else if (level <= 150) {
+    colors = 9;
+  } else if (level <= 200) {
+    colors = 10;
+  } else if (level <= 250) {
+    colors = 10;
+    capacity = 6;
+  } else {
+    colors = 10;
+    capacity = 7;
   }
 
-  return { level, capacity: 5, colors, empty };
+  return { level, capacity, colors, empty };
 }
 
 export function getPalette(count: number): ColorCode[] {
@@ -111,8 +104,6 @@ export function getValidMoves(state: GameState, capacity: number): PourMove[] {
       const space = capacity - dest.length;
       const amount = Math.min(run, space);
       if (amount <= 0) continue;
-      // Avoid meaningless moves that just reverse the previous state.
-      // We still allow them in generation; gameplay uses full validation.
       moves.push({ from, to, amount, color });
     }
   }
@@ -152,19 +143,6 @@ export function isLevelComplete(state: GameState, capacity: number): boolean {
   );
 }
 
-/**
- * Generate a scrambled-but-solvable level by starting from the solved
- * arrangement and repeatedly peeling a *random-length* slice off the top
- * of a random bottle and stacking it onto a random OTHER bottle,
- * regardless of that bottle's current top color.
- *
- * This is the reverse of a legal pour, so undoing every step (in reverse
- * order) is always a legal sequence of forward moves back to the solved
- * state — guaranteeing the puzzle is solvable — while still producing
- * genuinely mixed bottles (unlike naively replaying "forward" pours from
- * a fully-solved state, which can only ever relocate whole same-color
- * bottles and therefore never actually mixes anything).
- */
 export function generateLevel(level: number): GameState {
   const { capacity, colors, empty } = getLevelConfig(level);
   const palette = getPalette(colors);
@@ -173,7 +151,7 @@ export function generateLevel(level: number): GameState {
   const bottles: Bottle[] = palette.map((c) => Array(capacity).fill(c));
   for (let i = 0; i < empty; i++) bottles.push([]);
 
-  const mixMoves = Math.min(300, 60 + level * 3);
+  const mixMoves = Math.min(400, 100 + level * 3);
 
   for (let i = 0; i < mixMoves; i++) {
     const sourceCandidates = bottles
@@ -196,8 +174,6 @@ export function generateLevel(level: number): GameState {
     const maxAmount = Math.min(run, space);
     if (maxAmount <= 0) continue;
 
-    // Random amount from 1..maxAmount (NOT always the full run) is what
-    // actually produces mixed bottles instead of whole-bottle relocation.
     const amount = 1 + Math.floor(rng() * maxAmount);
 
     for (let k = 0; k < amount; k++) {
@@ -212,13 +188,11 @@ export function findHint(state: GameState, capacity: number): PourMove | null {
   const moves = getValidMoves(state, capacity);
   if (moves.length === 0) return null;
 
-  // Prefer moves that progress toward completion.
   for (const move of moves) {
     const next = applyMove(state, move, capacity);
     if (isLevelComplete(next, capacity)) return move;
   }
 
-  // Prefer moves into non-empty bottles of the same color.
   const sameColorMoves = moves.filter((m) => {
     const dest = state[m.to];
     return dest.length > 0 && getTopColor(dest) === m.color;
@@ -227,7 +201,6 @@ export function findHint(state: GameState, capacity: number): PourMove | null {
     return sameColorMoves[0];
   }
 
-  // Prefer moves into empty bottles only when necessary.
   return moves[0];
 }
 

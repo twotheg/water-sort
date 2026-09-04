@@ -151,7 +151,10 @@ export function generateLevel(level: number): GameState {
   const bottles: Bottle[] = palette.map((c) => Array(capacity).fill(c));
   for (let i = 0; i < empty; i++) bottles.push([]);
 
-  const mixMoves = Math.min(400, 100 + level * 3);
+  // Early levels used to scramble far too aggressively (e.g. level 9
+  // needed 127+ reverse-moves on only 9 bottles). Scale gently at first,
+  // with a floor tied to the puzzle's own size so it's never trivially easy.
+  const mixMoves = Math.min(400, Math.max(colors * 4, 20 + level * 3));
 
   for (let i = 0; i < mixMoves; i++) {
     const sourceCandidates = bottles

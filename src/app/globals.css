@@ -2,15 +2,15 @@
 
 :root {
   --bottle-width: 52px;
-  --bottle-height: 180px;
-  --segment-height: 36px;
+  --bottle-height: 190px;
+  --segment-height: 32px;
 }
 
 @media (min-width: 640px) {
   :root {
     --bottle-width: 64px;
-    --bottle-height: 220px;
-    --segment-height: 44px;
+    --bottle-height: 230px;
+    --segment-height: 40px;
   }
 }
 
@@ -20,63 +20,120 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 3D-looking test-tube shaped glass bottle: flat rim on top, rounded
+   bottom, with a curved glossy highlight down one side. */
 .glass-bottle {
   position: relative;
   width: var(--bottle-width);
   height: var(--bottle-height);
-  border-radius: 9999px;
-  border: 3px solid rgba(255, 255, 255, 0.35);
+  border-radius: 10px 10px 34px 34px / 10px 10px 52px 52px;
+  border: 3px solid rgba(255, 255, 255, 0.4);
+  border-top: none;
   background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.05) 50%,
-    rgba(255, 255, 255, 0.1) 100%
+    100deg,
+    rgba(255, 255, 255, 0.22) 0%,
+    rgba(255, 255, 255, 0.03) 30%,
+    rgba(255, 255, 255, 0.02) 60%,
+    rgba(255, 255, 255, 0.16) 100%
   );
   box-shadow:
-    inset 0 0 18px rgba(255, 255, 255, 0.12),
-    0 8px 24px rgba(0, 0, 0, 0.35);
+    inset -8px 0 14px rgba(0, 0, 0, 0.3),
+    inset 8px 0 16px rgba(255, 255, 255, 0.18),
+    0 10px 22px rgba(0, 0, 0, 0.45);
   overflow: hidden;
   transition: transform 150ms ease, box-shadow 150ms ease;
+  transform-origin: 50% 100%;
 }
 
+/* Curved glossy reflection stripe, like light hitting round glass. */
 .glass-bottle::after {
   content: "";
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
+  top: 6px;
+  bottom: 12px;
+  left: 16%;
+  width: 16%;
+  border-radius: 999px;
   background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.22) 0%,
-    rgba(255, 255, 255, 0) 35%,
-    rgba(255, 255, 255, 0) 65%,
-    rgba(255, 255, 255, 0.12) 100%
+    180deg,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0.08) 55%,
+    rgba(255, 255, 255, 0.3) 100%
   );
+  pointer-events: none;
+  z-index: 3;
 }
 
 .glass-bottle.selected {
-  transform: translateY(-10px) scale(1.04);
+  transform: translateY(-10px) scale(1.05);
   box-shadow:
-    0 0 0 3px rgba(14, 165, 233, 0.6),
-    0 12px 32px rgba(14, 165, 233, 0.35);
+    0 0 0 3px rgba(14, 165, 233, 0.65),
+    0 12px 32px rgba(14, 165, 233, 0.4);
 }
 
 .glass-bottle.completed {
   animation: bottle-glow 1.6s ease-in-out infinite alternate;
 }
 
+.glass-bottle.pouring {
+  animation: tilt-pour 480ms ease;
+  z-index: 20;
+}
+
+.glass-bottle.receiving {
+  animation: receive-pulse 420ms ease;
+}
+
+@keyframes tilt-pour {
+  0% {
+    transform: rotate(0deg) translateY(0);
+  }
+  30% {
+    transform: rotate(-34deg) translateY(-8px);
+  }
+  65% {
+    transform: rotate(-34deg) translateY(-8px);
+  }
+  100% {
+    transform: rotate(0deg) translateY(0);
+  }
+}
+
+@keyframes receive-pulse {
+  0% {
+    box-shadow:
+      inset -8px 0 14px rgba(0, 0, 0, 0.3),
+      inset 8px 0 16px rgba(255, 255, 255, 0.18),
+      0 10px 22px rgba(0, 0, 0, 0.45);
+  }
+  45% {
+    box-shadow:
+      0 0 0 6px rgba(255, 255, 255, 0.4),
+      inset -8px 0 14px rgba(0, 0, 0, 0.3),
+      0 10px 22px rgba(0, 0, 0, 0.45);
+  }
+  100% {
+    box-shadow:
+      inset -8px 0 14px rgba(0, 0, 0, 0.3),
+      inset 8px 0 16px rgba(255, 255, 255, 0.18),
+      0 10px 22px rgba(0, 0, 0, 0.45);
+  }
+}
+
 @keyframes bottle-glow {
   from {
     box-shadow:
-      inset 0 0 18px rgba(255, 255, 255, 0.12),
-      0 8px 24px rgba(0, 0, 0, 0.35),
+      inset -8px 0 14px rgba(0, 0, 0, 0.3),
+      inset 8px 0 16px rgba(255, 255, 255, 0.18),
+      0 10px 22px rgba(0, 0, 0, 0.45),
       0 0 12px rgba(250, 204, 21, 0.4);
   }
   to {
     box-shadow:
-      inset 0 0 22px rgba(255, 255, 255, 0.18),
-      0 8px 24px rgba(0, 0, 0, 0.35),
-      0 0 28px rgba(250, 204, 21, 0.85);
+      inset -8px 0 14px rgba(0, 0, 0, 0.3),
+      inset 8px 0 16px rgba(255, 255, 255, 0.18),
+      0 10px 22px rgba(0, 0, 0, 0.45),
+      0 0 28px rgba(250, 204, 21, 0.9);
   }
 }
 
@@ -84,7 +141,7 @@ body {
   height: var(--segment-height);
   width: 100%;
   position: relative;
-  transition: background-color 200ms ease;
+  transition: background 200ms ease;
 }
 
 .liquid-segment::before {
@@ -93,31 +150,57 @@ body {
   left: 0;
   right: 0;
   top: 0;
-  height: 40%;
+  height: 38%;
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.25) 0%,
+    rgba(255, 255, 255, 0.35) 0%,
     rgba(255, 255, 255, 0) 100%
   );
   pointer-events: none;
 }
 
-.pour-particle {
+/* Rounded "meniscus" highlight on the topmost liquid layer, so the
+   surface reads as a curved liquid line instead of a flat block edge. */
+.liquid-top::after {
+  content: "";
   position: absolute;
-  width: 8px;
-  border-radius: 9999px;
-  animation: pour-stream 280ms ease-in forwards;
-  pointer-events: none;
+  left: -12%;
+  right: -12%;
+  top: -5px;
+  height: 10px;
+  border-radius: 50%;
+  background: inherit;
+  filter: brightness(1.2);
+}
+
+/* Animated stream shown above the source bottle while pouring. */
+.pour-stream {
+  position: absolute;
+  top: -54px;
+  left: 50%;
+  width: 7px;
+  height: 54px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  animation: pour-stream 480ms ease-in;
+  z-index: 25;
 }
 
 @keyframes pour-stream {
   0% {
+    opacity: 0;
     height: 0;
-    opacity: 1;
+  }
+  20% {
+    opacity: 0.95;
+  }
+  75% {
+    opacity: 0.95;
+    height: 54px;
   }
   100% {
-    height: 140px;
-    opacity: 0.8;
+    opacity: 0;
+    height: 54px;
   }
 }
 

@@ -7,9 +7,12 @@ import {
   formatTime,
   generateLevel,
   getLevelConfig,
+  getPalette,
   getTopColor,
+  getTopRunLength,
   isBottleComplete,
   isLevelComplete,
+  type ColorCode,
   type GameState,
   type PourMove,
 } from "@/lib/game";
@@ -22,6 +25,8 @@ const SOUND_KEY = "water-sort-sound";
 const VIBRATION_KEY = "water-sort-vibration";
 const TOTAL_LEVELS = 300;
 const POUR_ANIM_MS = 480;
+const COLOR_ITEM_KEY = "water-sort-color-change-items";
+const STARTING_COLOR_ITEMS = 3;
 
 function getOrCreateDeviceId(): string {
   if (typeof window === "undefined") return "";
@@ -48,6 +53,9 @@ export function GameBoard() {
   const [pushEnabled, setPushEnabled] = useState(false);
   const [hintMove, setHintMove] = useState<PourMove | null>(null);
   const [pourInfo, setPourInfo] = useState<{ from: number; to: number } | null>(null);
+  const [colorItems, setColorItems] = useState(STARTING_COLOR_ITEMS);
+  const [itemMode, setItemMode] = useState(false);
+  const [colorPickerFor, setColorPickerFor] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pourTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -71,6 +79,8 @@ export function GameBoard() {
     setState(generateLevel(startLevel));
     setSoundEnabled(localStorage.getItem(SOUND_KEY) !== "false");
     setVibrationEnabled(localStorage.getItem(VIBRATION_KEY) !== "false");
+    const savedItems = localStorage.getItem(COLOR_ITEM_KEY);
+    setColorItems(savedItems === null ? STARTING_COLOR_ITEMS : Number(savedItems));
   }, []);
 
   useEffect(() => {
@@ -168,6 +178,12 @@ export function GameBoard() {
     if (nextLevel > currentHighest) {
       localStorage.setItem(HIGHEST_LEVEL_KEY, String(nextLevel));
     }
+    // Reward: +1 color-change item per level cleared.
+    setColorItems((prev) => {
+      const next = prev + 1;
+      localStorage.setItem(COLOR_ITEM_KEY, String(next));
+      return next;
+    });
     const deviceId = getOrCreateDeviceId();
     if (!deviceId) return;
     try {
@@ -190,6 +206,13 @@ export function GameBoard() {
   const handleBottleClick = useCallback(
     (index: number) => {
       if (isClear) return;
+
+      if (itemMode) {
+        if (state[index].length === 0) return;
+        setColorPickerFor(index);
+        setItemMode(false);
+        return;
+      }
 
       if (selectedIndex === null) {
         if (state[index].length === 0) return;
@@ -251,13 +274,37 @@ export function GameBoard() {
         navigator.vibrate(25);
       }
     },
-    [selectedIndex, state, capacity, isClear, playPourSound, vibrationEnabled]
+    [selectedIndex, state, capacity, isClear, playPourSound, vibrationEnabled, itemMode]
   );
 
   const undo = useCallback(() => {
     // Not tracking history in MVP; restart level instead.
     restartLevel();
   }, [level]);
+
+  const applyColorChange = useCallback(
+    (bottleIndex: number, newColor: ColorCode) => {
+      if (colorItems <= 0) return;
+      setState((prev) => {
+        const next = prev.map((b) => [...b]);
+        const bottle = next[bottleIndex];
+        const runLength = getTopRunLength(bottle);
+        for (let i = bottle.length - runLength; i < bottle.length; i++) {
+          bottle[i] = newColor;
+        }
+        return next;
+      });
+      setColorItems((prev) => {
+        const nextCount = Math.max(0, prev - 1);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(COLOR_ITEM_KEY, String(nextCount));
+        }
+        return nextCount;
+      });
+      setColorPickerFor(null);
+    },
+    [colorItems]
+  );
 
   const restartLevel = useCallback(() => {
     setState(generateLevel(level));
@@ -267,6 +314,8 @@ export function GameBoard() {
     setSelectedIndex(null);
     setHintMove(null);
     setPourInfo(null);
+    setItemMode(false);
+    setColorPickerFor(null);
   }, [level]);
 
   const goToLevel = useCallback((nextLevel: number) => {
@@ -279,6 +328,8 @@ export function GameBoard() {
     setSelectedIndex(null);
     setHintMove(null);
     setPourInfo(null);
+    setItemMode(false);
+    setColorPickerFor(null);
     setShowLevelSelect(false);
     setShowMenu(false);
   }, []);
@@ -415,9 +466,16 @@ export function GameBoard() {
       </main>
 
       {/* Controls */}
-      <div className="sticky bottom-0 z-30 mx-4 mb-4 grid grid-cols-4 gap-2 sm:mx-6 sm:mb-6 sm:gap-3">
+      <div className="sticky bottom-0 z-30 mx-4 mb-4 grid grid-cols-5 gap-2 sm:mx-6 sm:mb-6 sm:gap-3">
         <ControlButton onClick={undo} label="다시 시작" icon={<RestartIcon />} />
         <ControlButton onClick={showHint} label="힌트" icon={<HintIcon />} />
+        <ControlButton
+          onClick={() => setItemMode((v) => !v)}
+          label={`색변경 ${colorItems}`}
+          icon={<ColorSwapIcon />}
+          active={itemMode}
+          disabled={colorItems <= 0}
+        />
         <ControlButton
           onClick={() => setShowLevelSelect(true)}
           label="스테이지"
@@ -429,6 +487,13 @@ export function GameBoard() {
           icon={<PrevIcon />}
         />
       </div>
+      {itemMode && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 flex justify-center px-4">
+          <div className="rounded-full bg-sky-500/90 px-4 py-2 text-sm font-semibold text-white shadow-lg">
+            색을 바꿀 병을 선택하세요
+          </div>
+        </div>
+      )}
 
       {/* Menu modal */}
       {showMenu && (
@@ -495,6 +560,35 @@ export function GameBoard() {
         </div>
       )}
 
+      {/* Color-change item: pick a new color for the selected bottle's top group */}
+      {colorPickerFor !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-xs rounded-3xl bg-slate-900 p-6 shadow-2xl">
+            <h3 className="mb-1 text-center text-lg font-bold text-white">색깔 변경</h3>
+            <p className="mb-4 text-center text-xs text-slate-400">
+              맨 위 색상 그룹을 바꿀 색을 고르세요
+            </p>
+            <div className="grid grid-cols-5 gap-3">
+              {getPalette(config.colors).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => applyColorChange(colorPickerFor, c)}
+                  className="aspect-square rounded-full border-2 border-white/30 shadow-md transition hover:scale-110"
+                  style={{ backgroundColor: c }}
+                  aria-label={`색상 ${c}로 변경`}
+                />
+              ))}
+            </div>
+            <button
+              onClick={() => setColorPickerFor(null)}
+              className="mt-5 w-full rounded-xl bg-slate-700 py-3 font-semibold text-white transition hover:bg-slate-600"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Level clear modal */}
       {isClear && (
         <LevelClearModal
@@ -513,19 +607,38 @@ function ControlButton({
   onClick,
   label,
   icon,
+  active,
+  disabled,
 }: {
   onClick: () => void;
   label: string;
   icon: React.ReactNode;
+  active?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-slate-800/90 py-3 text-white shadow-lg backdrop-blur transition hover:bg-slate-700 active:scale-95"
+      disabled={disabled}
+      className={`flex flex-col items-center justify-center gap-1 rounded-2xl py-3 text-white shadow-lg backdrop-blur transition active:scale-95 ${
+        active
+          ? "bg-sky-500 hover:bg-sky-400"
+          : "bg-slate-800/90 hover:bg-slate-700"
+      } ${disabled ? "opacity-40" : ""}`}
     >
-      <span className="text-sky-300">{icon}</span>
-      <span className="text-[10px] font-medium text-slate-300">{label}</span>
+      <span className={active ? "text-white" : "text-sky-300"}>{icon}</span>
+      <span className={`text-[10px] font-medium ${active ? "text-white" : "text-slate-300"}`}>
+        {label}
+      </span>
     </button>
+  );
+}
+
+function ColorSwapIcon() {
+  return (
+    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 0115.9 6.02 4.5 4.5 0 0117.5 15h-1.8M9 19l3 3m0 0l3-3m-3 3V10" />
+    </svg>
   );
 }
 

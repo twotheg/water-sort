@@ -6,7 +6,7 @@
   --background-end-rgb: 7, 9, 14;
 }
 
-/* 상하단 시스템 바(상태표시줄, 네비게이션 바) 영역 대응 및 꽉 찬 화면 설정 */
+/* 시스템 상태바 및 네비게이션바 숨김 처리 및 모바일 꽉 찬 화면 고정 */
 html,
 body {
   width: 100vw;
@@ -14,15 +14,15 @@ body {
   margin: 0;
   padding: 0;
   overflow: hidden;
+  position: fixed;
   color: rgb(var(--foreground-rgb));
   background: rgb(var(--background-start-rgb));
-  touch-action: manipulation;
+  touch-action: none;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
-  position: fixed;
 }
 
-/* 하단 컨트롤 버튼 (동글동글하고 부드러운 패널 디자인) */
+/* 하단 컨트롤 버튼 디자인 */
 .control-btn {
   display: flex;
   flex-direction: column;
@@ -30,13 +30,13 @@ body {
   justify-content: center;
   background-color: rgba(51, 65, 85, 0.5);
   color: #cbd5e1;
-  border-radius: 20px;
-  padding: 8px 2px;
-  font-size: 11px;
+  border-radius: 18px;
+  padding: 6px 2px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -50,7 +50,7 @@ body {
   border-color: rgba(56, 189, 248, 0.4);
 }
 
-/* 스테이지 클리어 시 병이 영롱하게 빛나는 애니메이션 */
+/* 클리어 시 병이 영롱하게 빛나는 애니메이션 */
 .completed-pulse {
   animation: bottle-glow 1.4s ease-in-out infinite alternate;
 }

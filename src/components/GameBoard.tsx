@@ -16,15 +16,18 @@ const HIGHEST_LEVEL_KEY = "water-sort-highest-level";
 const SOUND_KEY = "water-sort-sound";
 const TOTAL_LEVELS = 1000;
 
-// 레퍼런스 화면에 어울리는 고정된 세련된 색상 팔레트
-const FIXED_PALETTE: ColorCode[] = [
+// 레퍼런스 스크린샷에 부합하는 다양한 파스텔·비비드 색상 팔레트
+const VIVID_PALETTE: ColorCode[] = [
   "#f43f5e", // 레드/핑크
   "#f97316", // 주황
-  "#facc15", // 노랑
+  "#eab308", // 노랑
   "#22c55e", // 초록
   "#06b6d4", // 하늘
   "#3b82f6", // 파랑
   "#a855f7", // 보라
+  "#ec4899", // 핫핑크
+  "#14b8a6", // 청록
+  "#84cc16", // 연두
 ];
 
 export function GameBoard() {
@@ -40,7 +43,7 @@ export function GameBoard() {
   
   const [undoCount, setUndoCount] = useState(5);
   
-  // 물병 추가 단계: 0(없음), 1칸~5칸 단계별 누적 증가
+  // 물병 추가 단계: 0(없음), 1~5 (누를 때마다 1칸씩 늘어나는 빈 병의 최대 용량)
   const [extraBottleStage, setExtraBottleStage] = useState(0);
   const [showLevelSelect, setShowLevelSelect] = useState(false);
 
@@ -99,18 +102,33 @@ export function GameBoard() {
     }
   }, [soundEnabled]);
 
-  // 정확히 7개의 채워진 병 + 2개의 빈 병 = 총 9개 병 세팅
+  // ★ 핵심 수정: 색상들이 레퍼런스처럼 완전히 뒤죽박죽 섞이도록 무작위 셔플 로직 적용
   const initLevel = useCallback((lv: number) => {
-    const filledBottles = [];
-    for (let i = 0; i < 7; i++) {
-      const c1 = FIXED_PALETTE[(i + 0) % FIXED_PALETTE.length];
-      const c2 = FIXED_PALETTE[(i + 1) % FIXED_PALETTE.length];
-      const c3 = FIXED_PALETTE[(i + 2) % FIXED_PALETTE.length];
-      const c4 = FIXED_PALETTE[(i + 3) % FIXED_PALETTE.length];
-      const c5 = FIXED_PALETTE[(i + 4) % FIXED_PALETTE.length];
-      filledBottles.push([c1, c2, c3, c4, c5]);
+    // 사용할 색상 5가지 선택
+    const pool = [...VIVID_PALETTE].sort(() => Math.random() - 0.5);
+    const selectedColors = pool.slice(0, 5);
+
+    // 각 색상별로 5개씩 총 25개의 조각 생성 후 완벽하게 무작위 셔플
+    const allSegments: ColorCode[] = [];
+    selectedColors.forEach((color) => {
+      for (let i = 0; i < 5; i++) {
+        allSegments.push(color);
+      }
+    });
+    
+    // 무작위 섞기 (Fisher-Yates Shuffle)
+    for (let i = allSegments.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allSegments[i], allSegments[j]] = [allSegments[j], allSegments[i]];
     }
 
+    // 7개의 병에 5개씩 나누어 담기 (완전히 뒤죽박죽 섞인 상태)
+    const filledBottles = [];
+    for (let i = 0; i < 7; i++) {
+      filledBottles.push(allSegments.slice(i * 5, (i + 1) * 5));
+    }
+
+    // 7개 채워진 병 + 2개의 빈 병 = 총 9개 병 세팅
     const initialBottles: GameState = [...filledBottles, [], []];
     
     setState(initialBottles);
@@ -147,10 +165,10 @@ export function GameBoard() {
 
   const capacity = 5; // 기본 병 용량 5칸
 
-  // 10번째 추가된 병의 현재 칸수(stage)를 유효 용량 및 렌더링 칸수로 적용
+  // 10번째 추가된 병의 현재 용량(1칸~5칸) 반환
   const getBottleCapacity = (index: number) => {
     if (index === 9) {
-      return Math.max(1, extraBottleStage);
+      return Math.max(0, extraBottleStage);
     }
     return capacity;
   };
@@ -162,8 +180,9 @@ export function GameBoard() {
     }
 
     const isCompleted = state.every((b, i) => {
-      if (b.length === 0) return true;
-      return isBottleComplete(b, getBottleCapacity(i));
+      const cap = getBottleCapacity(i);
+      if (b.length === 0 || cap === 0) return true;
+      return isBottleComplete(b, cap);
     });
 
     if (isCompleted && !isClear && state.length > 0) {
@@ -189,6 +208,7 @@ export function GameBoard() {
   const handleBottleClick = useCallback((index: number) => {
     if (isClear) return;
 
+    // 만약 10번째 병이 생성되었으나 용량이 0이면 선택 불가
     if (index === 9 && extraBottleStage === 0) return;
 
     if (selectedIndex === null) {
@@ -213,7 +233,7 @@ export function GameBoard() {
     const destTop = getTopColor(dest);
     const destCap = getBottleCapacity(index);
 
-    if (dest.length >= destCap) {
+    if (destCap === 0 || dest.length >= destCap) {
       setSelectedIndex(index);
       return;
     }
@@ -280,15 +300,15 @@ export function GameBoard() {
     }
   };
 
-  // ★ 물병 추가 버튼: 누를 때마다 광고 후 1칸씩 순차적으로 늘어남 (최대 5칸까지 확장)
+  // ★ 물병 추가 버튼 로직: 누를 때마다 광고 후 병의 최대 칸수가 1칸씩 늘어남 (1칸 -> 2칸 -> 3칸 -> 4칸 -> 5칸)
   const handleAddBottle = () => {
     if (extraBottleStage >= 5) {
-      alert("Maximum bottle expansion reached (5 slots).");
+      alert("Maximum bottle capacity reached (5 slots).");
       return;
     }
     showAd(() => {
       if (extraBottleStage === 0) {
-        // 첫 번째 클릭 시 빈 병 생성과 동시에 1칸짜리 병으로 시작
+        // 최초 누름: 10번째 병 생성 (초기에는 비어있고 칸수 1개짜리로 시작)
         setState((prev) => [...prev, []]);
       }
       setExtraBottleStage((prev) => prev + 1);
@@ -314,7 +334,10 @@ export function GameBoard() {
 
   const completedSet = new Set(
     state
-      .map((b, i) => (isBottleComplete(b, getBottleCapacity(i)) ? i : -1))
+      .map((b, i) => {
+        const cap = getBottleCapacity(i);
+        return cap > 0 && isBottleComplete(b, cap) ? i : -1;
+      })
       .filter((i) => i !== -1)
   );
 
@@ -347,7 +370,7 @@ export function GameBoard() {
 
       {/* Game Board Grid: 10개가 되면 5x2 배열로 정렬 */}
       <main className="flex flex-1 items-center justify-center px-4 py-1 overflow-hidden">
-        <div className="grid grid-cols-5 gap-3 justify-items-center items-center" style={{ maxWidth: '540px', width: '100%' }}>
+        <div className={`grid gap-3 justify-items-center items-center ${state.length >= 10 ? 'grid-cols-5' : 'grid-cols-5'}`} style={{ maxWidth: '540px', width: '100%' }}>
           {state.map((bottle, i) => (
             <Bottle
               key={i}

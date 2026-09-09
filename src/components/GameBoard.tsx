@@ -16,7 +16,7 @@ const HIGHEST_LEVEL_KEY = "water-sort-highest-level";
 const SOUND_KEY = "water-sort-sound";
 const TOTAL_LEVELS = 1000;
 
-// 레퍼런스 스크린샷에 부합하는 다양한 파스텔·비비드 색상 팔레트
+// 레퍼런스 화면에 맞는 다채로운 파스텔·비비드 색상 팔레트
 const VIVID_PALETTE: ColorCode[] = [
   "#f43f5e", // 레드/핑크
   "#f97316", // 주황
@@ -43,7 +43,7 @@ export function GameBoard() {
   
   const [undoCount, setUndoCount] = useState(5);
   
-  // 물병 추가 단계: 0(없음), 1~5 (누를 때마다 1칸씩 늘어나는 빈 병의 최대 용량)
+  // 물병 추가 단계: 0(없음), 1 ~ 5칸으로 단계별 확장
   const [extraBottleStage, setExtraBottleStage] = useState(0);
   const [showLevelSelect, setShowLevelSelect] = useState(false);
 
@@ -51,6 +51,7 @@ export function GameBoard() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const isInitialMount = useRef(true);
 
+  // 사운드 효과음
   const playSound = useCallback((type: 'pour' | 'complete' | 'win') => {
     if (!soundEnabled || typeof window === "undefined") return;
     try {
@@ -102,13 +103,11 @@ export function GameBoard() {
     }
   }, [soundEnabled]);
 
-  // ★ 핵심 수정: 색상들이 레퍼런스처럼 완전히 뒤죽박죽 섞이도록 무작위 셔플 로직 적용
+  // 정확히 7개의 채워진 병(색상이 완벽히 뒤죽박죽 섞임) + 2개의 빈 병 = 총 9개 병 세팅[span_3](start_span)[span_3](end_span)
   const initLevel = useCallback((lv: number) => {
-    // 사용할 색상 5가지 선택
     const pool = [...VIVID_PALETTE].sort(() => Math.random() - 0.5);
     const selectedColors = pool.slice(0, 5);
 
-    // 각 색상별로 5개씩 총 25개의 조각 생성 후 완벽하게 무작위 셔플
     const allSegments: ColorCode[] = [];
     selectedColors.forEach((color) => {
       for (let i = 0; i < 5; i++) {
@@ -116,19 +115,17 @@ export function GameBoard() {
       }
     });
     
-    // 무작위 섞기 (Fisher-Yates Shuffle)
+    // 완벽한 무작위 셔플
     for (let i = allSegments.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [allSegments[i], allSegments[j]] = [allSegments[j], allSegments[i]];
     }
 
-    // 7개의 병에 5개씩 나누어 담기 (완전히 뒤죽박죽 섞인 상태)
     const filledBottles = [];
     for (let i = 0; i < 7; i++) {
       filledBottles.push(allSegments.slice(i * 5, (i + 1) * 5));
     }
 
-    // 7개 채워진 병 + 2개의 빈 병 = 총 9개 병 세팅
     const initialBottles: GameState = [...filledBottles, [], []];
     
     setState(initialBottles);
@@ -165,7 +162,7 @@ export function GameBoard() {
 
   const capacity = 5; // 기본 병 용량 5칸
 
-  // 10번째 추가된 병의 현재 용량(1칸~5칸) 반환
+  // 10번째 추가된 병의 현재 용량 반환 (index 9)[span_4](start_span)[span_4](end_span)
   const getBottleCapacity = (index: number) => {
     if (index === 9) {
       return Math.max(0, extraBottleStage);
@@ -208,7 +205,6 @@ export function GameBoard() {
   const handleBottleClick = useCallback((index: number) => {
     if (isClear) return;
 
-    // 만약 10번째 병이 생성되었으나 용량이 0이면 선택 불가
     if (index === 9 && extraBottleStage === 0) return;
 
     if (selectedIndex === null) {
@@ -300,7 +296,7 @@ export function GameBoard() {
     }
   };
 
-  // ★ 물병 추가 버튼 로직: 누를 때마다 광고 후 병의 최대 칸수가 1칸씩 늘어남 (1칸 -> 2칸 -> 3칸 -> 4칸 -> 5칸)
+  // ★ 물병 추가 버튼: 누를 때마다 광고 시청 후 10번째 병의 칸수가 1칸씩 늘어남 (1 -> 2 -> 3 -> 4 -> 5칸)[span_5](start_span)[span_5](end_span)
   const handleAddBottle = () => {
     if (extraBottleStage >= 5) {
       alert("Maximum bottle capacity reached (5 slots).");
@@ -308,7 +304,7 @@ export function GameBoard() {
     }
     showAd(() => {
       if (extraBottleStage === 0) {
-        // 최초 누름: 10번째 병 생성 (초기에는 비어있고 칸수 1개짜리로 시작)
+        // 최초 클릭 시 10번째 병 생성 및 1칸짜리 빈 공간 확보
         setState((prev) => [...prev, []]);
       }
       setExtraBottleStage((prev) => prev + 1);
@@ -368,7 +364,7 @@ export function GameBoard() {
         </div>
       </div>
 
-      {/* Game Board Grid: 10개가 되면 5x2 배열로 정렬 */}
+      {/* Game Board Grid: 10개가 되면 5x2 배열로 정렬[span_6](start_span)[span_6](end_span) */}
       <main className="flex flex-1 items-center justify-center px-4 py-1 overflow-hidden">
         <div className={`grid gap-3 justify-items-center items-center ${state.length >= 10 ? 'grid-cols-5' : 'grid-cols-5'}`} style={{ maxWidth: '540px', width: '100%' }}>
           {state.map((bottle, i) => (
@@ -385,7 +381,7 @@ export function GameBoard() {
         </div>
       </main>
 
-      {/* 4 Bottom Control Buttons */}
+      {/* 4 Bottom Control Buttons[span_7](start_span)[span_7](end_span) */}
       <div className="z-30 mx-4 mb-2 shrink-0 grid grid-cols-4 gap-2 bg-slate-900/90 p-2.5 rounded-3xl shadow-2xl border border-white/10 backdrop-blur-lg">
         <button onClick={restartLevel} className="control-btn">
           <span className="text-lg mb-0.5">🔄</span>
@@ -413,7 +409,7 @@ export function GameBoard() {
         </button>
       </div>
 
-      {/* Ad Space Area */}
+      {/* Ad Space Area[span_8](start_span)[span_8](end_span) */}
       <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center text-slate-500 text-[11px] font-bold tracking-widest border-t border-white/5">
         [ AD BANNER SPACE ]
       </div>

@@ -29,13 +29,13 @@ export function GameBoard() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   
   const [undoCount, setUndoCount] = useState(5);
-  const [extraBottlesCount, setExtraBottlesCount] = useState(0); // 추가된 빈 병 개수 (최대 2개, 총 11개)
+  const [extraBottlesCount, setExtraBottlesCount] = useState(0);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const isInitialMount = useRef(true);
 
-  // 사운드 효과음 헬퍼
+  // 사운드 효과음
   const playSound = useCallback((type: 'pour' | 'complete' | 'win') => {
     if (!soundEnabled || typeof window === "undefined") return;
     try {
@@ -87,12 +87,11 @@ export function GameBoard() {
     }
   }, [soundEnabled]);
 
-  // 스테이지 초기화: 정확히 7개의 채워진 병 + 2개의 빈 병 = 총 9개 병 구성
+  // 정확히 7개 채워진 병 + 2개 빈 병 세팅
   const initLevel = useCallback((lv: number) => {
     const rawState = generateLevel(lv);
     const filledBottles = rawState.filter((b) => b.length > 0).slice(0, 7);
     
-    // 만약 채워진 병이 7개보다 부족하면 보정
     while (filledBottles.length < 7) {
       filledBottles.push(['#f43f5e', '#f97316', '#facc15', '#22c55e', '#3b82f6']);
     }
@@ -132,7 +131,7 @@ export function GameBoard() {
   }, [isClear, level]);
 
   const config = getLevelConfig(level);
-  const capacity = config.capacity || 5; // 기본 5칸 기준
+  const capacity = config.capacity || 5;
 
   useEffect(() => {
     if (isInitialMount.current) {
@@ -211,7 +210,6 @@ export function GameBoard() {
 
     setHistory((prev) => [...prev, state.map(b => [...b])]);
     
-    // 물 붓기 직접 연산 적용
     const newSource = [...source];
     const newDest = [...dest];
     for (let i = 0; i < amount; i++) {
@@ -256,7 +254,6 @@ export function GameBoard() {
     }
   };
 
-  // 물병 추가 버튼: 광고 시청 후 온전한 빈 병 1개 추가 (최대 2개)
   const handleAddBottle = () => {
     if (extraBottlesCount >= 2) {
       alert("Maximum extra bottles reached.");
@@ -291,7 +288,7 @@ export function GameBoard() {
   );
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-gradient-to-b from-[#121824] via-[#0b0f17] to-[#07090e] select-none touch-none">
+    <div className="absolute inset-0 flex flex-col overflow-hidden bg-gradient-to-b from-[#121824] via-[#0b0f17] to-[#07090e] select-none touch-none">
       
       {/* Header */}
       <header className="flex items-center justify-between px-6 pt-3 pb-1 shrink-0">
@@ -317,7 +314,7 @@ export function GameBoard() {
         </div>
       </div>
 
-      {/* Game Board Grid (병들을 위로 올려 광고 공간 확보) */}
+      {/* Game Board Grid (병들을 위로 바짝 붙여 배치) */}
       <main className="flex flex-1 items-center justify-center px-4 py-1 overflow-hidden">
         <div className="grid grid-cols-5 gap-3 justify-items-center items-center" style={{ maxWidth: '540px', width: '100%' }}>
           {state.map((bottle, i) => (

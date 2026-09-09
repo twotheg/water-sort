@@ -30,13 +30,13 @@ export function GameBoard() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   
   const [undoCount, setUndoCount] = useState(5);
-  const [addedBottlesCount, setAddedBottlesCount] = useState(0); // 추가된 병 개수 (최대 2개, 총 11개 병)
+  const [addedBottlesCount, setAddedBottlesCount] = useState(0);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const isInitialMount = useRef(true);
 
-  // 사운드 재생 헬퍼 (Web Audio API)
+  // 사운드 재생 헬퍼 (Web Audio API - 메서드 오타 수정 완료)
   const playSound = useCallback((type: 'pour' | 'complete' | 'win') => {
     if (!soundEnabled || typeof window === "undefined") return;
     try {
@@ -52,34 +52,31 @@ export function GameBoard() {
       gain.connect(ctx.destination);
 
       if (type === 'pour') {
-        // 물 따르는 쫄쫄쫄 효과음
         osc.type = "sine";
         osc.frequency.setValueAtTime(400, now);
-        osc.frequency.exponentialRampValueAtTime(700, now + 0.08);
-        osc.frequency.exponentialRampValueAtTime(300, now + 0.15);
+        osc.frequency.exponentialRampToValueAtTime(700, now + 0.08);
+        osc.frequency.exponentialRampToValueAtTime(300, now + 0.15);
         gain.gain.setValueAtTime(0.1, now);
-        gain.gain.exponentialRampValueAtTime(0.001, now + 0.18);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
         osc.start(now);
         osc.stop(now + 0.18);
       } else if (type === 'complete') {
-        // 병 하나 완성 시 청량한 영롱한 효과음
         osc.type = "triangle";
-        osc.frequency.setValueAtTime(523.25, now); // C5
-        osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
-        osc.frequency.setValueAtTime(783.99, now + 0.16); // G5
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.setValueAtTime(659.25, now + 0.08);
+        osc.frequency.setValueAtTime(783.99, now + 0.16);
         gain.gain.setValueAtTime(0.12, now);
-        gain.gain.exponentialRampValueAtTime(0.001, now + 0.35);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
         osc.start(now);
         osc.stop(now + 0.35);
       } else if (type === 'win') {
-        // 레벨 클리어 화려한 축하 효과음
         [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
           const o = ctx.createOscillator();
           const g = ctx.createGain();
           o.type = "sine";
           o.frequency.value = freq;
           g.gain.setValueAtTime(0.1, now + i * 0.1);
-          g.gain.exponentialRampValueAtTime(0.001, now + i * 0.1 + 0.3);
+          g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.3);
           o.connect(g);
           g.connect(ctx.destination);
           o.start(now + i * 0.1);
@@ -91,10 +88,8 @@ export function GameBoard() {
     }
   }, [soundEnabled]);
 
-  // 스테이지 초기화 로직: 정확히 7개 채워진 병 + 2개 빈 병 (총 9개)
   const initLevel = useCallback((lv: number) => {
     const rawState = generateLevel(lv);
-    // 7개 병만 가져오고, 뒤에 2개의 빈 병을 확실하게 추가하여 총 9개 구성
     const trimmed = rawState.slice(0, 7);
     const initialBottles: GameState = [...trimmed, [], []];
     
@@ -133,7 +128,6 @@ export function GameBoard() {
   const config = getLevelConfig(level);
   const baseCapacity = config.capacity || 4;
 
-  // 병별 최대 용량 계산 함수 (추가된 병들은 각각 독립된 4칸 또는 지정 칸수 가짐)
   const getBottleCapacity = (index: number) => {
     return baseCapacity;
   };
@@ -144,7 +138,6 @@ export function GameBoard() {
       return;
     }
 
-    // 완성 체크 (모든 병이 비어있거나, 한 가지 색으로 가득 차 있거나)
     const isCompleted = state.every((b, i) => {
       if (b.length === 0) return true;
       const cap = getBottleCapacity(i);
@@ -221,7 +214,6 @@ export function GameBoard() {
     const move: PourMove = { from: selectedIndex, to: index, amount, color };
     const next = applyMove(state, move, destCapacity);
     
-    // 이동 직전 완성 여부 확인용 복사본 대비, 이동 후 완성된 병이 생겼는지 체크
     const wasCompleteBefore = isBottleComplete(dest, destCapacity);
     const willBeCompleteAfter = isBottleComplete(next[index], destCapacity);
 
@@ -229,7 +221,6 @@ export function GameBoard() {
     setMoves((m) => m + 1);
     setSelectedIndex(null);
 
-    // 사운드 재생: 병 하나가 완성되면 complete 효과음, 아니면 일반 pour 효과음
     if (!wasCompleteBefore && willBeCompleteAfter) {
       playSound('complete');
     } else {
@@ -254,7 +245,6 @@ export function GameBoard() {
     }
   };
 
-  // 물병 추가 버튼: 누를 때마다 광고 후 독립된 새로운 빈 병 1개씩 추가 (최대 2개까지, 총 11개)
   const handleAddBottle = () => {
     if (addedBottlesCount >= 2) {
       alert("Maximum extra bottles reached.");
@@ -294,7 +284,6 @@ export function GameBoard() {
   return (
     <div className="relative flex h-[100vh] w-[100vw] flex-col overflow-hidden bg-gradient-to-b from-[#121824] via-[#0b0f17] to-[#07090e] select-none">
       
-      {/* Header (전체 화면을 위로 올려 공간 확보 및 둥글둥글한 카드 UI) */}
       <header className="flex items-center justify-between px-6 pt-3 pb-2">
         <h1 className="text-2xl font-black text-white tracking-wide">Level {level}</h1>
         <button onClick={toggleSound} className="p-2 rounded-2xl bg-slate-800/80 shadow-inner transition-transform active:scale-95" aria-label="Toggle Sound">
@@ -306,7 +295,6 @@ export function GameBoard() {
         </button>
       </header>
 
-      {/* Stats Cards (둥글둥글한 모서리와 부드러운 그림자) */}
       <div className="mx-6 grid grid-cols-2 gap-3 mb-2">
         <div className="rounded-2xl bg-slate-800/60 p-2.5 text-center shadow-lg border border-white/5 backdrop-blur-md">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Moves</p>
@@ -318,7 +306,6 @@ export function GameBoard() {
         </div>
       </div>
 
-      {/* Game Board Grid (병들을 위로 바짝 올려 광고 공간 확보) */}
       <main className="flex flex-1 items-center justify-center px-4 py-1">
         <div className="grid grid-cols-5 gap-3.5 justify-items-center items-center" style={{ maxWidth: '600px', width: '100%' }}>
           {state.map((bottle, i) => (
@@ -335,7 +322,6 @@ export function GameBoard() {
         </div>
       </main>
 
-      {/* 4 Bottom Control Buttons (각각 독립된 4개의 동글동글한 버튼 패널) */}
       <div className="z-30 mx-4 mb-2 grid grid-cols-4 gap-2.5 bg-slate-900/90 p-3 rounded-3xl shadow-2xl border border-white/10 backdrop-blur-lg">
         <button onClick={restartLevel} className="control-btn">
           <span className="text-xl mb-1">🔄</span>
@@ -363,12 +349,10 @@ export function GameBoard() {
         </button>
       </div>
 
-      {/* Ad Space Area (하단 광고 영역 확보) */}
       <div className="h-12 bg-black/60 flex justify-center items-center text-slate-500 text-[11px] font-bold tracking-widest border-t border-white/5">
         [ AD BANNER SPACE ]
       </div>
 
-      {/* Level Clear Modal */}
       {isClear && (
         <LevelClearModal
           level={level}

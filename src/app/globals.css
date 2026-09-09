@@ -2,34 +2,42 @@
 
 :root {
   --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 15, 23, 42;
-  --background-end-rgb: 15, 23, 42;
+  --background-start-rgb: 11, 15, 23;
+  --background-end-rgb: 7, 9, 14;
 }
 
+/* 상하단 시스템 바(상태표시줄, 네비게이션 바) 영역 대응 및 꽉 찬 화면 설정 */
+html,
 body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-start-rgb));
+  width: 100vw;
+  height: 100vh;
   margin: 0;
   padding: 0;
+  overflow: hidden;
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-start-rgb));
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  position: fixed;
 }
 
-/* 하단 컨트롤 버튼 스타일 */
+/* 하단 컨트롤 버튼 (동글동글하고 부드러운 패널 디자인) */
 .control-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: rgba(30, 41, 59, 0.8);
-  color: #94a3b8;
-  border-radius: 12px;
-  padding: 10px 4px;
+  background-color: rgba(51, 65, 85, 0.5);
+  color: #cbd5e1;
+  border-radius: 20px;
+  padding: 8px 2px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
-  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .control-btn:active {
@@ -37,20 +45,21 @@ body {
 }
 
 .control-btn:hover {
-  background-color: rgba(56, 189, 248, 0.2);
+  background-color: rgba(56, 189, 248, 0.25);
   color: #ffffff;
+  border-color: rgba(56, 189, 248, 0.4);
 }
 
-/* 스테이지 클리어 시 병 빛나는 애니메이션 */
+/* 스테이지 클리어 시 병이 영롱하게 빛나는 애니메이션 */
 .completed-pulse {
-  animation: bottle-glow 1.5s ease-in-out infinite alternate;
+  animation: bottle-glow 1.4s ease-in-out infinite alternate;
 }
 
 @keyframes bottle-glow {
   from {
-    box-shadow: 0 0 10px rgba(76, 175, 80, 0.3), inset -5px -5px 10px rgba(0,0,0,0.2), inset 5px 0 10px rgba(255,255,255,0.6);
+    box-shadow: 0 0 12px rgba(76, 175, 80, 0.4), inset -4px -4px 10px rgba(0,0,0,0.3), inset 4px 0 10px rgba(255,255,255,0.6);
   }
   to {
-    box-shadow: 0 0 25px rgba(76, 175, 80, 0.9), inset -5px -5px 10px rgba(0,0,0,0.2), inset 5px 0 10px rgba(255,255,255,0.6);
+    box-shadow: 0 0 28px rgba(76, 175, 80, 0.95), inset -4px -4px 10px rgba(0,0,0,0.3), inset 4px 0 10px rgba(255,255,255,0.6);
   }
 }

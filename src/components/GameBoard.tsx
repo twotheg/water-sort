@@ -8,6 +8,7 @@ import {
   isBottleComplete,
   type GameState,
   type PourMove,
+  type ColorCode,
 } from "@/lib/game";
 import { Bottle } from "./Bottle";
 import { LevelClearModal } from "./LevelClearModal";
@@ -15,6 +16,22 @@ import { LevelClearModal } from "./LevelClearModal";
 const HIGHEST_LEVEL_KEY = "water-sort-highest-level";
 const SOUND_KEY = "water-sort-sound";
 const TOTAL_LEVELS = 1000;
+
+// 레퍼런스 이미지에 맞는 다채롭고 세련된 색상 팔레트
+const ADVANCED_PALETTE: ColorCode[] = [
+  "#f43f5e", // 장미/레드
+  "#f97316", // 주황
+  "#facc15", // 노랑
+  "#22c55e", // 초록
+  "#06b6d4", // 하늘
+  "#3b82f6", // 파랑
+  "#a855f7", // 보라
+  "#ec4899", // 분홍
+  "#84cc16", // 라임
+  "#14b8a6", // 청록
+  "#94a3b8", // 그레이
+  "#e11d48", // 진한레드
+];
 
 export function GameBoard() {
   const [level, setLevel] = useState(1);
@@ -28,7 +45,10 @@ export function GameBoard() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   
   const [undoCount, setUndoCount] = useState(5);
-  const [extraBottlesCount, setExtraBottlesCount] = useState(0);
+  
+  // 물병 추가 단계: 0(없음), 1칸, 2칸, 3칸, 4칸, 5칸 (최대 5단계, 총 10개 병 5x2 정렬)
+  const [extraBottleStage, setExtraBottleStage] = useState(0);
+  const [showLevelSelect, setShowLevelSelect] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -86,24 +106,26 @@ export function GameBoard() {
     }
   }, [soundEnabled]);
 
-  // ★ 핵심 수정: 5칸짜리 색상 5개씩 병에 무조건 꽉 차도록 7개 생성 + 2개 빈 병(총 9개) 강제 보정 세팅
+  // 7개 채워진 병 + 2개 빈 병 (총 9개), 레퍼런스처럼 다양한 색상이 복합적으로 섞인 구조 생성
   const initLevel = useCallback((lv: number) => {
-    const defaultColors = ['#f43f5e', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#a855f7', '#06b6d4'];
+    // 레벨에 따라 색상 풀에서 무작위로 조합하여 다채로운 5칸짜리 병 7개 생성
+    const shuffled = [...ADVANCED_PALETTE].sort(() => Math.random() - 0.5);
+    const usedColors = shuffled.slice(0, 5); // 5가지 색상 선택
+
     const filledBottles = [];
-    
-    // 7개의 병에 각각 서로 다른 색상 5개씩 가득 채움 (병이 비어있거나 부족한 문제 원천 차단)
     for (let i = 0; i < 7; i++) {
-      const mainColor = defaultColors[i % defaultColors.length];
-      const secondColor = defaultColors[(i + 1) % defaultColors.length];
-      const thirdColor = defaultColors[(i + 2) % defaultColors.length];
-      const fourthColor = defaultColors[(i + 3) % defaultColors.length];
-      const fifthColor = defaultColors[(i + 4) % defaultColors.length];
-      
-      // 섞이도록 배치하되 5칸이 꽉 차게 구성
-      filledBottles.push([mainColor, secondColor, thirdColor, fourthColor, fifthColor]);
+      // 각 병마다 5칸이 다채롭게 섞이도록 구성
+      const bottleColors = [
+        usedColors[i % usedColors.length],
+        usedColors[(i + 1) % usedColors.length],
+        usedColors[(i + 2) % usedColors.length],
+        usedColors[(i + 3) % usedColors.length],
+        usedColors[(i + 4) % usedColors.length],
+      ];
+      filledBottles.push(bottleColors);
     }
 
-    // 7개 채워진 병 + 2개의 완벽한 빈 병 = 총 9개
+    // 7개 채워진 병 + 2개 빈 병 = 총 9개
     const initialBottles: GameState = [...filledBottles, [], []];
     
     setState(initialBottles);
@@ -112,7 +134,7 @@ export function GameBoard() {
     setMoves(0);
     setTimeSeconds(0);
     setIsClear(false);
-    setExtraBottlesCount(0);
+    setExtraBottleStage(0);
   }, []);
 
   const loadSettings = useCallback(() => {
@@ -138,8 +160,15 @@ export function GameBoard() {
     };
   }, [isClear, level]);
 
-  const config = getLevelConfig(level);
-  const capacity = 5; // 무조건 5칸 기준으로 고정
+  const capacity = 5; // 기본 병 용량 5칸
+
+  // 각 병의 실제 유효 용량 반환 (10번째 추가된 병은 현재 진행된 extraBottleStage 칸수 적용)
+  const getBottleCapacity = (index: number) => {
+    if (index === 9) {
+      return Math.max(1, extraBottleStage);
+    }
+    return capacity;
+  };
 
   useEffect(() => {
     if (isInitialMount.current) {
@@ -147,9 +176,9 @@ export function GameBoard() {
       return;
     }
 
-    const isCompleted = state.every((b) => {
+    const isCompleted = state.every((b, i) => {
       if (b.length === 0) return true;
-      return isBottleComplete(b, capacity);
+      return isBottleComplete(b, getBottleCapacity(i));
     });
 
     if (isCompleted && !isClear && state.length > 0) {
@@ -163,7 +192,7 @@ export function GameBoard() {
         }
       }
     }
-  }, [state, capacity, isClear, level, playSound]);
+  }, [state, isClear, level, playSound, extraBottleStage]);
 
   const showAd = (callback: () => void) => {
     alert("Watching Ad... (Ad Queue Triggered)");
@@ -174,6 +203,9 @@ export function GameBoard() {
 
   const handleBottleClick = useCallback((index: number) => {
     if (isClear) return;
+
+    // 만약 10번째 병이 생성되었으나 아직 칸 수가 0칸이면 물을 부을 수 없음
+    if (index === 9 && extraBottleStage === 0) return;
 
     if (selectedIndex === null) {
       if (state[index].length === 0) return;
@@ -195,7 +227,9 @@ export function GameBoard() {
     }
 
     const destTop = getTopColor(dest);
-    if (dest.length >= capacity) {
+    const destCap = getBottleCapacity(index);
+
+    if (dest.length >= destCap) {
       setSelectedIndex(index);
       return;
     }
@@ -209,7 +243,7 @@ export function GameBoard() {
       if (source[i] === color) run++;
       else break;
     }
-    const space = capacity - dest.length;
+    const space = destCap - dest.length;
     const amount = Math.min(run, space);
     if (amount <= 0) {
       setSelectedIndex(index);
@@ -231,8 +265,8 @@ export function GameBoard() {
       return [...b];
     });
 
-    const wasCompleteBefore = isBottleComplete(dest, capacity);
-    const willBeCompleteAfter = isBottleComplete(newDest, capacity);
+    const wasCompleteBefore = isBottleComplete(dest, destCap);
+    const willBeCompleteAfter = isBottleComplete(newDest, destCap);
 
     setState(next);
     setMoves((m) => m + 1);
@@ -243,7 +277,7 @@ export function GameBoard() {
     } else {
       playSound('pour');
     }
-  }, [selectedIndex, state, capacity, isClear, playSound]);
+  }, [selectedIndex, state, isClear, playSound, extraBottleStage]);
 
   const handleUndo = () => {
     if (undoCount > 0) {
@@ -262,23 +296,28 @@ export function GameBoard() {
     }
   };
 
+  // 물병 추가 버튼 로직: 누를 때마다 광고 후 1칸씩 증가 (최대 5칸). 첫 생성 시 10번째 병이 생기며 총 10개 병(5x2 배열) 완성
   const handleAddBottle = () => {
-    if (extraBottlesCount >= 2) {
-      alert("Maximum extra bottles reached.");
+    if (extraBottleStage >= 5) {
+      alert("Maximum bottle expansion reached (5 slots).");
       return;
     }
     showAd(() => {
-      setState((prev) => [...prev, []]);
-      setExtraBottlesCount((prev) => prev + 1);
+      if (extraBottleStage === 0) {
+        // 최초 누름: 10번째 빈 병 생성 및 1칸 부여
+        setState((prev) => [...prev, []]);
+      }
+      setExtraBottleStage((prev) => prev + 1);
     });
   };
 
   const restartLevel = () => initLevel(level);
   
-  const goToNextLevel = () => {
-    const nextLv = Math.min(level + 1, TOTAL_LEVELS);
-    setLevel(nextLv);
-    initLevel(nextLv);
+  const goToLevel = (targetLevel: number) => {
+    const lv = Math.max(1, Math.min(targetLevel, TOTAL_LEVELS));
+    setLevel(lv);
+    initLevel(lv);
+    setShowLevelSelect(false);
   };
 
   const toggleSound = () => {
@@ -291,7 +330,7 @@ export function GameBoard() {
 
   const completedSet = new Set(
     state
-      .map((b, i) => (isBottleComplete(b, capacity) ? i : -1))
+      .map((b, i) => (isBottleComplete(b, getBottleCapacity(i)) ? i : -1))
       .filter((i) => i !== -1)
   );
 
@@ -322,14 +361,14 @@ export function GameBoard() {
         </div>
       </div>
 
-      {/* Game Board Grid (병들을 위로 바짝 붙여 배치) */}
+      {/* Game Board Grid: 10개가 되면 5개씩 2줄(5x2)로 완벽하게 정렬 */}
       <main className="flex flex-1 items-center justify-center px-4 py-1 overflow-hidden">
-        <div className="grid grid-cols-5 gap-3 justify-items-center items-center" style={{ maxWidth: '540px', width: '100%' }}>
+        <div className={`grid gap-3 justify-items-center items-center ${state.length >= 10 ? 'grid-cols-5' : 'grid-cols-5'}`} style={{ maxWidth: '540px', width: '100%' }}>
           {state.map((bottle, i) => (
             <Bottle
               key={i}
               bottle={bottle}
-              capacity={capacity}
+              capacity={getBottleCapacity(i)}
               isSelected={selectedIndex === i}
               isCompleted={completedSet.has(i)}
               onClick={() => handleBottleClick(i)}
@@ -355,13 +394,13 @@ export function GameBoard() {
         <button onClick={handleAddBottle} className="control-btn relative">
           <span className="text-lg mb-0.5">🧪</span>
           <span>Add</span>
-          {extraBottlesCount > 0 && (
-             <div className="absolute -top-1.5 -right-1.5 bg-emerald-500 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-md border-2 border-slate-900">
-               {extraBottlesCount}
+          {extraBottleStage > 0 && (
+             <div className="absolute -top-1.5 -right-1.5 bg-emerald-500 text-white text-[9px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-md border-2 border-slate-900">
+               {extraBottleStage}/5
              </div>
           )}
         </button>
-        <button onClick={goToNextLevel} className="control-btn">
+        <button onClick={() => setShowLevelSelect(true)} className="control-btn">
           <span className="text-lg mb-0.5">🎯</span>
           <span>Stage</span>
         </button>
@@ -372,13 +411,44 @@ export function GameBoard() {
         [ AD BANNER SPACE ]
       </div>
 
+      {/* Level Select Modal (Stage 버튼 클릭 시 작동) */}
+      {showLevelSelect && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <div className="flex h-[75vh] w-full max-w-md flex-col rounded-3xl bg-slate-900 p-5 shadow-2xl border border-white/10">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-white">Select Stage (1 - 1000)</h3>
+              <button onClick={() => setShowLevelSelect(false)} className="text-slate-400 hover:text-white text-lg font-bold p-1">
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto pr-1">
+              <div className="grid grid-cols-5 gap-2">
+                {Array.from({ length: TOTAL_LEVELS }, (_, i) => i + 1).map((lv) => (
+                  <button
+                    key={lv}
+                    onClick={() => goToLevel(lv)}
+                    className={`aspect-square rounded-xl text-sm font-bold transition ${
+                      lv === level
+                        ? "bg-sky-500 text-white shadow-lg shadow-sky-500/30"
+                        : "bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                    }`}
+                  >
+                    {lv}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Level Clear Modal */}
       {isClear && (
         <LevelClearModal
           level={level}
           moves={moves}
           timeSeconds={timeSeconds}
-          onNext={goToNextLevel}
+          onNext={() => goToLevel(level + 1)}
           onHome={restartLevel}
         />
       )}

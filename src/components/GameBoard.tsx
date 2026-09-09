@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
   formatTime,
-  generateLevel,
   getLevelConfig,
   getTopColor,
   isBottleComplete,
@@ -87,15 +86,24 @@ export function GameBoard() {
     }
   }, [soundEnabled]);
 
-  // 정확히 7개 채워진 병 + 2개 빈 병 세팅
+  // ★ 핵심 수정: 5칸짜리 색상 5개씩 병에 무조건 꽉 차도록 7개 생성 + 2개 빈 병(총 9개) 강제 보정 세팅
   const initLevel = useCallback((lv: number) => {
-    const rawState = generateLevel(lv);
-    const filledBottles = rawState.filter((b) => b.length > 0).slice(0, 7);
+    const defaultColors = ['#f43f5e', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#a855f7', '#06b6d4'];
+    const filledBottles = [];
     
-    while (filledBottles.length < 7) {
-      filledBottles.push(['#f43f5e', '#f97316', '#facc15', '#22c55e', '#3b82f6']);
+    // 7개의 병에 각각 서로 다른 색상 5개씩 가득 채움 (병이 비어있거나 부족한 문제 원천 차단)
+    for (let i = 0; i < 7; i++) {
+      const mainColor = defaultColors[i % defaultColors.length];
+      const secondColor = defaultColors[(i + 1) % defaultColors.length];
+      const thirdColor = defaultColors[(i + 2) % defaultColors.length];
+      const fourthColor = defaultColors[(i + 3) % defaultColors.length];
+      const fifthColor = defaultColors[(i + 4) % defaultColors.length];
+      
+      // 섞이도록 배치하되 5칸이 꽉 차게 구성
+      filledBottles.push([mainColor, secondColor, thirdColor, fourthColor, fifthColor]);
     }
 
+    // 7개 채워진 병 + 2개의 완벽한 빈 병 = 총 9개
     const initialBottles: GameState = [...filledBottles, [], []];
     
     setState(initialBottles);
@@ -131,7 +139,7 @@ export function GameBoard() {
   }, [isClear, level]);
 
   const config = getLevelConfig(level);
-  const capacity = config.capacity || 5;
+  const capacity = 5; // 무조건 5칸 기준으로 고정
 
   useEffect(() => {
     if (isInitialMount.current) {
@@ -288,7 +296,7 @@ export function GameBoard() {
   );
 
   return (
-    <div className="absolute inset-0 flex flex-col overflow-hidden bg-gradient-to-b from-[#121824] via-[#0b0f17] to-[#07090e] select-none touch-none">
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-gradient-to-b from-[#121824] via-[#0b0f17] to-[#07090e] select-none touch-none">
       
       {/* Header */}
       <header className="flex items-center justify-between px-6 pt-3 pb-1 shrink-0">

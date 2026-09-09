@@ -6,7 +6,7 @@
   --background-end-rgb: 7, 9, 14;
 }
 
-/* 시스템 상태바 및 네비게이션바 숨김 처리 및 모바일 꽉 찬 화면 고정 */
+/* 상하단 시스템 바 완벽 차단 및 풀스크린 고정 */
 html,
 body {
   width: 100vw;
@@ -15,6 +15,7 @@ body {
   padding: 0;
   overflow: hidden;
   position: fixed;
+  inset: 0;
   color: rgb(var(--foreground-rgb));
   background: rgb(var(--background-start-rgb));
   touch-action: none;
@@ -22,7 +23,7 @@ body {
   user-select: none;
 }
 
-/* 하단 컨트롤 버튼 디자인 */
+/* 둥글둥글한 하단 컨트롤 버튼 */
 .control-btn {
   display: flex;
   flex-direction: column;
@@ -50,7 +51,7 @@ body {
   border-color: rgba(56, 189, 248, 0.4);
 }
 
-/* 클리어 시 병이 영롱하게 빛나는 애니메이션 */
+/* 클리어 시 병 빛나는 애니메이션 */
 .completed-pulse {
   animation: bottle-glow 1.4s ease-in-out infinite alternate;
 }

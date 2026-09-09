@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
-  applyMove,
   formatTime,
   generateLevel,
   getLevelConfig,
@@ -30,13 +29,13 @@ export function GameBoard() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   
   const [undoCount, setUndoCount] = useState(5);
-  const [addedBottlesCount, setAddedBottlesCount] = useState(0);
+  const [extraBottlesCount, setExtraBottlesCount] = useState(0); // 추가된 빈 병 개수 (최대 2개, 총 11개)
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const isInitialMount = useRef(true);
 
-  // 사운드 재생 헬퍼 (Web Audio API - 메서드 오타 수정 완료)
+  // 사운드 효과음 헬퍼
   const playSound = useCallback((type: 'pour' | 'complete' | 'win') => {
     if (!soundEnabled || typeof window === "undefined") return;
     try {
@@ -84,14 +83,21 @@ export function GameBoard() {
         });
       }
     } catch {
-      // Audio error ignore
+      // ignore
     }
   }, [soundEnabled]);
 
+  // 스테이지 초기화: 정확히 7개의 채워진 병 + 2개의 빈 병 = 총 9개 병 구성
   const initLevel = useCallback((lv: number) => {
     const rawState = generateLevel(lv);
-    const trimmed = rawState.slice(0, 7);
-    const initialBottles: GameState = [...trimmed, [], []];
+    const filledBottles = rawState.filter((b) => b.length > 0).slice(0, 7);
+    
+    // 만약 채워진 병이 7개보다 부족하면 보정
+    while (filledBottles.length < 7) {
+      filledBottles.push(['#f43f5e', '#f97316', '#facc15', '#22c55e', '#3b82f6']);
+    }
+
+    const initialBottles: GameState = [...filledBottles, [], []];
     
     setState(initialBottles);
     setHistory([]);
@@ -99,7 +105,7 @@ export function GameBoard() {
     setMoves(0);
     setTimeSeconds(0);
     setIsClear(false);
-    setAddedBottlesCount(0);
+    setExtraBottlesCount(0);
   }, []);
 
   const loadSettings = useCallback(() => {
@@ -126,11 +132,7 @@ export function GameBoard() {
   }, [isClear, level]);
 
   const config = getLevelConfig(level);
-  const baseCapacity = config.capacity || 4;
-
-  const getBottleCapacity = (index: number) => {
-    return baseCapacity;
-  };
+  const capacity = config.capacity || 5; // 기본 5칸 기준
 
   useEffect(() => {
     if (isInitialMount.current) {
@@ -138,10 +140,9 @@ export function GameBoard() {
       return;
     }
 
-    const isCompleted = state.every((b, i) => {
+    const isCompleted = state.every((b) => {
       if (b.length === 0) return true;
-      const cap = getBottleCapacity(i);
-      return isBottleComplete(b, cap);
+      return isBottleComplete(b, capacity);
     });
 
     if (isCompleted && !isClear && state.length > 0) {
@@ -155,7 +156,7 @@ export function GameBoard() {
         }
       }
     }
-  }, [state, baseCapacity, isClear, level, playSound]);
+  }, [state, capacity, isClear, level, playSound]);
 
   const showAd = (callback: () => void) => {
     alert("Watching Ad... (Ad Queue Triggered)");
@@ -187,9 +188,7 @@ export function GameBoard() {
     }
 
     const destTop = getTopColor(dest);
-    const destCapacity = getBottleCapacity(index);
-
-    if (dest.length >= destCapacity) {
+    if (dest.length >= capacity) {
       setSelectedIndex(index);
       return;
     }
@@ -203,7 +202,7 @@ export function GameBoard() {
       if (source[i] === color) run++;
       else break;
     }
-    const space = destCapacity - dest.length;
+    const space = capacity - dest.length;
     const amount = Math.min(run, space);
     if (amount <= 0) {
       setSelectedIndex(index);
@@ -211,11 +210,23 @@ export function GameBoard() {
     }
 
     setHistory((prev) => [...prev, state.map(b => [...b])]);
-    const move: PourMove = { from: selectedIndex, to: index, amount, color };
-    const next = applyMove(state, move, destCapacity);
     
-    const wasCompleteBefore = isBottleComplete(dest, destCapacity);
-    const willBeCompleteAfter = isBottleComplete(next[index], destCapacity);
+    // 물 붓기 직접 연산 적용
+    const newSource = [...source];
+    const newDest = [...dest];
+    for (let i = 0; i < amount; i++) {
+      newSource.pop();
+      newDest.push(color);
+    }
+
+    const next = state.map((b, idx) => {
+      if (idx === selectedIndex) return newSource;
+      if (idx === index) return newDest;
+      return [...b];
+    });
+
+    const wasCompleteBefore = isBottleComplete(dest, capacity);
+    const willBeCompleteAfter = isBottleComplete(newDest, capacity);
 
     setState(next);
     setMoves((m) => m + 1);
@@ -226,7 +237,7 @@ export function GameBoard() {
     } else {
       playSound('pour');
     }
-  }, [selectedIndex, state, baseCapacity, isClear, playSound]);
+  }, [selectedIndex, state, capacity, isClear, playSound]);
 
   const handleUndo = () => {
     if (undoCount > 0) {
@@ -245,14 +256,15 @@ export function GameBoard() {
     }
   };
 
+  // 물병 추가 버튼: 광고 시청 후 온전한 빈 병 1개 추가 (최대 2개)
   const handleAddBottle = () => {
-    if (addedBottlesCount >= 2) {
+    if (extraBottlesCount >= 2) {
       alert("Maximum extra bottles reached.");
       return;
     }
     showAd(() => {
       setState((prev) => [...prev, []]);
-      setAddedBottlesCount((prev) => prev + 1);
+      setExtraBottlesCount((prev) => prev + 1);
     });
   };
 
@@ -274,45 +286,45 @@ export function GameBoard() {
 
   const completedSet = new Set(
     state
-      .map((b, i) => {
-        const cap = getBottleCapacity(i);
-        return isBottleComplete(b, cap) ? i : -1;
-      })
+      .map((b, i) => (isBottleComplete(b, capacity) ? i : -1))
       .filter((i) => i !== -1)
   );
 
   return (
-    <div className="relative flex h-[100vh] w-[100vw] flex-col overflow-hidden bg-gradient-to-b from-[#121824] via-[#0b0f17] to-[#07090e] select-none">
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-gradient-to-b from-[#121824] via-[#0b0f17] to-[#07090e] select-none touch-none">
       
-      <header className="flex items-center justify-between px-6 pt-3 pb-2">
-        <h1 className="text-2xl font-black text-white tracking-wide">Level {level}</h1>
+      {/* Header */}
+      <header className="flex items-center justify-between px-6 pt-3 pb-1 shrink-0">
+        <h1 className="text-xl font-black text-white tracking-wide">Level {level}</h1>
         <button onClick={toggleSound} className="p-2 rounded-2xl bg-slate-800/80 shadow-inner transition-transform active:scale-95" aria-label="Toggle Sound">
           {soundEnabled ? (
-            <span style={{ fontSize: '24px' }}>🔊</span>
+            <span style={{ fontSize: '22px' }}>🔊</span>
           ) : (
-            <span style={{ fontSize: '24px', filter: 'grayscale(100%) opacity(50%)' }}>🔇</span>
+            <span style={{ fontSize: '22px', filter: 'grayscale(100%) opacity(50%)' }}>🔇</span>
           )}
         </button>
       </header>
 
-      <div className="mx-6 grid grid-cols-2 gap-3 mb-2">
-        <div className="rounded-2xl bg-slate-800/60 p-2.5 text-center shadow-lg border border-white/5 backdrop-blur-md">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Moves</p>
-          <p className="text-lg font-extrabold text-white">{moves}</p>
+      {/* Stats Cards */}
+      <div className="mx-6 grid grid-cols-2 gap-3 mb-1 shrink-0">
+        <div className="rounded-2xl bg-slate-800/60 p-2 text-center shadow-lg border border-white/5 backdrop-blur-md">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Moves</p>
+          <p className="text-base font-extrabold text-white">{moves}</p>
         </div>
-        <div className="rounded-2xl bg-slate-800/60 p-2.5 text-center shadow-lg border border-white/5 backdrop-blur-md">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Time</p>
-          <p className="text-lg font-extrabold text-white">{formatTime(timeSeconds)}</p>
+        <div className="rounded-2xl bg-slate-800/60 p-2 text-center shadow-lg border border-white/5 backdrop-blur-md">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Time</p>
+          <p className="text-base font-extrabold text-white">{formatTime(timeSeconds)}</p>
         </div>
       </div>
 
-      <main className="flex flex-1 items-center justify-center px-4 py-1">
-        <div className="grid grid-cols-5 gap-3.5 justify-items-center items-center" style={{ maxWidth: '600px', width: '100%' }}>
+      {/* Game Board Grid (병들을 위로 올려 광고 공간 확보) */}
+      <main className="flex flex-1 items-center justify-center px-4 py-1 overflow-hidden">
+        <div className="grid grid-cols-5 gap-3 justify-items-center items-center" style={{ maxWidth: '540px', width: '100%' }}>
           {state.map((bottle, i) => (
             <Bottle
               key={i}
               bottle={bottle}
-              capacity={getBottleCapacity(i)}
+              capacity={capacity}
               isSelected={selectedIndex === i}
               isCompleted={completedSet.has(i)}
               onClick={() => handleBottleClick(i)}
@@ -322,37 +334,40 @@ export function GameBoard() {
         </div>
       </main>
 
-      <div className="z-30 mx-4 mb-2 grid grid-cols-4 gap-2.5 bg-slate-900/90 p-3 rounded-3xl shadow-2xl border border-white/10 backdrop-blur-lg">
+      {/* 4 Bottom Control Buttons */}
+      <div className="z-30 mx-4 mb-2 shrink-0 grid grid-cols-4 gap-2 bg-slate-900/90 p-2.5 rounded-3xl shadow-2xl border border-white/10 backdrop-blur-lg">
         <button onClick={restartLevel} className="control-btn">
-          <span className="text-xl mb-1">🔄</span>
+          <span className="text-lg mb-0.5">🔄</span>
           <span>Restart</span>
         </button>
         <button onClick={handleUndo} className="control-btn relative">
-          <span className="text-xl mb-1">⏪</span>
+          <span className="text-lg mb-0.5">⏪</span>
           <span>Undo</span>
-          <div className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[11px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-md border-2 border-slate-900">
+          <div className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-md border-2 border-slate-900">
             {undoCount}
           </div>
         </button>
         <button onClick={handleAddBottle} className="control-btn relative">
-          <span className="text-xl mb-1">🧪</span>
+          <span className="text-lg mb-0.5">🧪</span>
           <span>Add</span>
-          {addedBottlesCount > 0 && (
+          {extraBottlesCount > 0 && (
              <div className="absolute -top-1.5 -right-1.5 bg-emerald-500 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-md border-2 border-slate-900">
-               {addedBottlesCount}
+               {extraBottlesCount}
              </div>
           )}
         </button>
         <button onClick={goToNextLevel} className="control-btn">
-          <span className="text-xl mb-1">🎯</span>
+          <span className="text-lg mb-0.5">🎯</span>
           <span>Stage</span>
         </button>
       </div>
 
-      <div className="h-12 bg-black/60 flex justify-center items-center text-slate-500 text-[11px] font-bold tracking-widest border-t border-white/5">
+      {/* Ad Space Area */}
+      <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center text-slate-500 text-[11px] font-bold tracking-widest border-t border-white/5">
         [ AD BANNER SPACE ]
       </div>
 
+      {/* Level Clear Modal */}
       {isClear && (
         <LevelClearModal
           level={level}

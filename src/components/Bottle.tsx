@@ -3,7 +3,7 @@ import type { Bottle as BottleType } from "@/lib/game";
 
 interface BottleProps {
   bottle: BottleType;
-  capacity: number;
+  capacity: number; // 1 ~ 5칸
   isSelected: boolean;
   isCompleted: boolean;
   onClick: () => void;
@@ -18,11 +18,16 @@ export function Bottle({
   onClick,
 }: BottleProps) {
   const emptySlots = Math.max(0, capacity - bottle.length);
+  
+  // 기준 높이: 5칸일 때 150px
+  const BASE_HEIGHT = 150;
+  const MAX_CAPACITY = 5;
+  // 현재 칸 수(capacity)에 비례해서 유리병 높이 계산 (1칸이면 30px, 2칸이면 60px...)
+  const currentHeight = (capacity / MAX_CAPACITY) * BASE_HEIGHT;
 
-  // 둥글둥글하고 매끄러운 3D 유리병 스타일
   const bottleStyle: React.CSSProperties = {
     width: "42px",
-    height: "150px",
+    height: `${currentHeight}px`, // 병 높이가 칸 수에 맞게 다이나믹하게 변함
     borderRadius: "0 0 24px 24px",
     border: "3px solid rgba(255, 255, 255, 0.45)",
     borderTop: "none",
@@ -51,7 +56,12 @@ export function Bottle({
   });
 
   return (
-    <div style={bottleStyle} onClick={onClick} className={isCompleted ? "completed-pulse" : ""}>
+    <div 
+      style={bottleStyle} 
+      onClick={onClick} 
+      // 5칸이 꽉 찼을 때만 클리어 펄스 애니메이션 적용
+      className={isCompleted && capacity === 5 ? "completed-pulse" : ""}
+    >
       {bottle.map((color, i) => {
         const isTopSegment = i === bottle.length - 1;
         return <div key={`color-${i}`} style={waterChunkStyle(color, isTopSegment)} />;

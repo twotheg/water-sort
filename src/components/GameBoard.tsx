@@ -16,15 +16,15 @@ const HIGHEST_LEVEL_KEY = "water-sort-highest-level";
 const SOUND_KEY = "water-sort-sound";
 const TOTAL_LEVELS = 1000;
 
-// 서로 절대 헷갈리지 않는 명확한 고대비 색상 10가지
+// 빨강과 헷갈리지 않도록 주황/다홍 계열을 빼고, 네이비와 라임을 추가한 고대비 팔레트
 const DISTINCT_PALETTE: ColorCode[] = [
   "#E53935", // 강렬한 빨강
   "#1E88E5", // 뚜렷한 파랑
   "#FDD835", // 쨍한 노랑
   "#43A047", // 짙은 초록
   "#8E24AA", // 짙은 보라
-  "#FB8C00", // 진한 주황
-  "#D81B60", // 핫핑크
+  "#283593", // 묵직한 남색 (주황색 대체!)
+  "#C0CA33", // 밝은 연두/라임 (핫핑크 대체!)
   "#6D4C41", // 갈색
   "#00ACC1", // 청록(시안)
   "#757575", // 짙은 회색
@@ -298,7 +298,7 @@ export function GameBoard() {
         setHistory((prev) => prev.slice(0, -1));
         setUndoCount((prev) => prev - 1);
       } else {
-        alert("No previous moves to undo.");
+        alert("되돌릴 항목이 없습니다.");
       }
     } else {
       showAd(() => {
@@ -309,7 +309,7 @@ export function GameBoard() {
 
   const handleAddBottle = () => {
     if (extraBottleStage >= 5) {
-      alert("Maximum bottle expansion reached (5 slots).");
+      alert("최대 5칸까지만 확장 가능합니다.");
       return;
     }
     showAd(() => {
@@ -484,3 +484,4 @@ export function GameBoard() {
     </div>
   );
 }
+

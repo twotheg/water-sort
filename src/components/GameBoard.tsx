@@ -16,15 +16,15 @@ const HIGHEST_LEVEL_KEY = "water-sort-highest-level";
 const SOUND_KEY = "water-sort-sound";
 const TOTAL_LEVELS = 1000;
 
-// 빨강과 헷갈리지 않도록 주황/다홍 계열을 빼고, 네이비와 라임을 추가한 고대비 팔레트
+// 서로 절대 헷갈리지 않는 명확한 고대비 색상 10가지
 const DISTINCT_PALETTE: ColorCode[] = [
   "#E53935", // 강렬한 빨강
   "#1E88E5", // 뚜렷한 파랑
   "#FDD835", // 쨍한 노랑
   "#43A047", // 짙은 초록
   "#8E24AA", // 짙은 보라
-  "#283593", // 묵직한 남색 (주황색 대체!)
-  "#C0CA33", // 밝은 연두/라임 (핫핑크 대체!)
+  "#FB8C00", // 진한 주황
+  "#D81B60", // 핫핑크
   "#6D4C41", // 갈색
   "#00ACC1", // 청록(시안)
   "#757575", // 짙은 회색
@@ -50,7 +50,6 @@ export function GameBoard() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const isInitialMount = useRef(true);
 
-  // 전체화면 토글
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch((err) => {
@@ -61,7 +60,7 @@ export function GameBoard() {
     }
   };
 
-  // 사운드 효과음
+  // ★ 물방울 떨어지는 효과음(쪼르륵)으로 완전히 업그레이드
   const playSound = useCallback((type: 'pour' | 'complete' | 'win') => {
     if (!soundEnabled || typeof window === "undefined") return;
     try {
@@ -71,27 +70,43 @@ export function GameBoard() {
       if (ctx.state === 'suspended') ctx.resume();
 
       const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
 
       if (type === 'pour') {
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(400, now);
-        osc.frequency.exponentialRampToValueAtTime(700, now + 0.08);
-        osc.frequency.exponentialRampToValueAtTime(300, now + 0.15);
-        gain.gain.setValueAtTime(0.1, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-        osc.start(now);
-        osc.stop(now + 0.18);
+        // 물방울(Bubble)이 연속으로 떨어지는 '쪼르륵' 효과 합성
+        for (let i = 0; i < 4; i++) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          
+          osc.type = "sine";
+          
+          // 방울마다 주파수를 약간씩 다르게 하여 물이 차오르는 느낌 구현
+          const baseFreq = 400 + (i * 150) + (Math.random() * 50);
+          const timeOffset = now + (i * 0.08); // 0.08초 간격으로 타격
+          
+          osc.frequency.setValueAtTime(baseFreq, timeOffset);
+          osc.frequency.exponentialRampToValueAtTime(baseFreq + 200, timeOffset + 0.08);
+          
+          gain.gain.setValueAtTime(0, timeOffset);
+          gain.gain.linearRampToValueAtTime(0.3, timeOffset + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, timeOffset + 0.1);
+          
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          
+          osc.start(timeOffset);
+          osc.stop(timeOffset + 0.1);
+        }
       } else if (type === 'complete') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
         osc.type = "triangle";
         osc.frequency.setValueAtTime(523.25, now);
         osc.frequency.setValueAtTime(659.25, now + 0.08);
         osc.frequency.setValueAtTime(783.99, now + 0.16);
         gain.gain.setValueAtTime(0.12, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
         osc.start(now);
         osc.stop(now + 0.35);
       } else if (type === 'win') {
@@ -113,7 +128,6 @@ export function GameBoard() {
     }
   }, [soundEnabled]);
 
-  // 무작위 7+2 병 세팅 (고대비 색상 팔레트 적용)
   const initLevel = useCallback(() => {
     const pool = [...DISTINCT_PALETTE].sort(() => Math.random() - 0.5);
     const selectedColors = pool.slice(0, 7);
@@ -125,7 +139,6 @@ export function GameBoard() {
       }
     });
     
-    // 완벽한 무작위 셔플
     for (let i = allSegments.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [allSegments[i], allSegments[j]] = [allSegments[j], allSegments[i]];
@@ -298,7 +311,7 @@ export function GameBoard() {
         setHistory((prev) => prev.slice(0, -1));
         setUndoCount((prev) => prev - 1);
       } else {
-        alert("되돌릴 항목이 없습니다.");
+        alert("No previous moves to undo.");
       }
     } else {
       showAd(() => {
@@ -309,7 +322,7 @@ export function GameBoard() {
 
   const handleAddBottle = () => {
     if (extraBottleStage >= 5) {
-      alert("최대 5칸까지만 확장 가능합니다.");
+      alert("Maximum bottle expansion reached (5 slots).");
       return;
     }
     showAd(() => {
@@ -349,7 +362,6 @@ export function GameBoard() {
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-gradient-to-b from-[#121824] via-[#0b0f17] to-[#07090e] select-none touch-none">
       
-      {/* Header */}
       <header className="flex items-center justify-between px-6 pt-3 pb-1 shrink-0">
         <h1 className="text-xl font-black text-white tracking-wide">Level {level}</h1>
         <div className="flex gap-2">
@@ -366,7 +378,6 @@ export function GameBoard() {
         </div>
       </header>
 
-      {/* Stats Cards */}
       <div className="mx-6 grid grid-cols-2 gap-3 mb-1 shrink-0">
         <div className="rounded-2xl bg-slate-800/60 p-2 text-center shadow-lg border border-white/5 backdrop-blur-md">
           <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Moves</p>
@@ -378,7 +389,6 @@ export function GameBoard() {
         </div>
       </div>
 
-      {/* Game Board Grid */}
       <main className="flex flex-1 items-center justify-center px-4 py-1 overflow-hidden">
         <div className={`grid gap-3 justify-items-center items-end ${state.length >= 10 ? 'grid-cols-5' : 'grid-cols-5'}`} style={{ maxWidth: '540px', width: '100%' }}>
           {state.map((bottle, i) => (
@@ -395,7 +405,6 @@ export function GameBoard() {
         </div>
       </main>
 
-      {/* 4 Bottom Control Buttons */}
       <div className="z-30 mx-4 mb-2 shrink-0 grid grid-cols-4 gap-2 bg-slate-900/90 p-2.5 rounded-3xl shadow-2xl border border-white/10 backdrop-blur-lg">
         <button onClick={restartLevel} className="control-btn">
           <span className="text-lg mb-0.5">🔄</span>
@@ -423,12 +432,10 @@ export function GameBoard() {
         </button>
       </div>
 
-      {/* Ad Space Area */}
       <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center text-slate-500 text-[11px] font-bold tracking-widest border-t border-white/5">
         [ AD BANNER SPACE ]
       </div>
 
-      {/* Level Select Modal */}
       {showLevelSelect && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
           <div className="flex h-[75vh] w-full max-w-md flex-col rounded-3xl bg-slate-900 p-5 shadow-2xl border border-white/10">
@@ -471,7 +478,6 @@ export function GameBoard() {
         </div>
       )}
 
-      {/* Level Clear Modal */}
       {isClear && (
         <LevelClearModal
           level={level}
@@ -484,4 +490,3 @@ export function GameBoard() {
     </div>
   );
 }
-

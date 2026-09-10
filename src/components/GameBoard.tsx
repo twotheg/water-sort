@@ -48,7 +48,7 @@ export function GameBoard() {
   const playSound = useCallback((type: 'pour' | 'complete' | 'win') => {
     if (!soundEnabled || typeof window === "undefined") return;
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!audioCtxRef.current) audioCtxRef.current = new AudioCtx();
       const ctx = audioCtxRef.current;
       if (ctx.state === 'suspended') ctx.resume();
@@ -165,7 +165,7 @@ export function GameBoard() {
       return;
     }
 
-    // 게임 클리어 조건: 비어있거나, 정확히 5칸이 같은 색으로 꽉 차 있어야 함
+    // 게임 클리어 조건: 모든 병이 비어있거나, 정확히 5칸이 같은 색으로 꽉 차 있어야 함
     const isCompleted = state.every((b) => {
       if (b.length === 0) return true;
       return b.length === 5 && b.every(c => c === b[0]);
@@ -191,9 +191,6 @@ export function GameBoard() {
 
   const handleBottleClick = useCallback((index: number) => {
     if (isClear) return;
-
-    // 10번째 병이 생성되었으나 아직 칸 수가 0칸이면 물을 부을 수 없음 (UI상 1칸부터 시작하므로 방어 코드)
-    if (index === 9 && extraBottleStage === 0) return;
 
     if (selectedIndex === null) {
       if (state[index].length === 0) return;
@@ -253,7 +250,6 @@ export function GameBoard() {
       return [...b];
     });
 
-    // 방금 부은 병이 5칸짜리이고, 5칸이 같은 색으로 꽉 찼는지 확인
     const willBeCompleteAfter = newDest.length === 5 && newDest.every(c => c === newDest[0]);
 
     setState(next);
@@ -290,9 +286,10 @@ export function GameBoard() {
     }
     showAd(() => {
       if (extraBottleStage === 0) {
-        // 첫 번째 Add 클릭: 10번째 빈 병 생성 (용량 1칸짜리로 시작)
+        // 첫 번째 Add 클릭: 10번째 빈 병 배열 생성
         setState((prev) => [...prev, []]);
       }
+      // 병의 최대 용량(높이)을 1칸 늘려줌
       setExtraBottleStage((prev) => prev + 1);
     });
   };
@@ -314,6 +311,7 @@ export function GameBoard() {
     });
   };
 
+  // 렌더링용 완성 여부
   const completedSet = new Set(
     state
       .map((b) => (b.length === 5 && b.every(c => c === b[0]) ? 1 : 0))
@@ -354,9 +352,9 @@ export function GameBoard() {
         </div>
       </div>
 
-      {/* Game Board Grid */}
+      {/* Game Board Grid: items-end를 주어 키가 작은 병도 아랫줄 바닥에 나란히 정렬되게 함 */}
       <main className="flex flex-1 items-center justify-center px-4 py-1 overflow-hidden">
-        <div className={`grid gap-3 justify-items-center items-center ${state.length >= 10 ? 'grid-cols-5' : 'grid-cols-5'}`} style={{ maxWidth: '540px', width: '100%' }}>
+        <div className={`grid gap-3 justify-items-center items-end ${state.length >= 10 ? 'grid-cols-5' : 'grid-cols-5'}`} style={{ maxWidth: '540px', width: '100%' }}>
           {state.map((bottle, i) => (
             <Bottle
               key={i}

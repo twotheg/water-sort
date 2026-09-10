@@ -1,14 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import {
-  formatTime,
-  getTopColor,
-  isBottleComplete,
-  type GameState,
-  type PourMove,
-  type ColorCode,
-} from "@/lib/game";
+import { formatTime, getTopColor, type GameState, type PourMove, type ColorCode } from "@/lib/game";
 import { Bottle } from "./Bottle";
 import { LevelClearModal } from "./LevelClearModal";
 
@@ -16,18 +9,10 @@ const HIGHEST_LEVEL_KEY = "water-sort-highest-level";
 const SOUND_KEY = "water-sort-sound";
 const TOTAL_LEVELS = 1000;
 
-// 레퍼런스 화면에 맞는 다채로운 파스텔·비비드 색상 팔레트
+// 10가지 색상 풀 (게임에서는 이 중 7개만 무작위로 뽑아서 사용)
 const VIVID_PALETTE: ColorCode[] = [
-  "#f43f5e", // 레드/핑크
-  "#f97316", // 주황
-  "#eab308", // 노랑
-  "#22c55e", // 초록
-  "#06b6d4", // 하늘
-  "#3b82f6", // 파랑
-  "#a855f7", // 보라
-  "#ec4899", // 핫핑크
-  "#14b8a6", // 청록
-  "#84cc16", // 연두
+  "#f43f5e", "#f97316", "#eab308", "#22c55e", "#06b6d4",
+  "#3b82f6", "#a855f7", "#ec4899", "#14b8a6", "#84cc16"
 ];
 
 export function GameBoard() {
@@ -42,20 +27,28 @@ export function GameBoard() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   
   const [undoCount, setUndoCount] = useState(5);
-  
-  // 물병 추가 단계: 0(없음), 1 ~ 5칸으로 단계별 확장
-  const [extraBottleStage, setExtraBottleStage] = useState(0);
+  const [extraBottleStage, setExtraBottleStage] = useState(0); // 추가 병의 용량 (0~5)
   const [showLevelSelect, setShowLevelSelect] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const isInitialMount = useRef(true);
 
-  // 사운드 효과음
+  // HTML5 Fullscreen API 토글
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.warn("Fullscreen Error:", err.message);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
   const playSound = useCallback((type: 'pour' | 'complete' | 'win') => {
     if (!soundEnabled || typeof window === "undefined") return;
     try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!audioCtxRef.current) audioCtxRef.current = new AudioCtx();
       const ctx = audioCtxRef.current;
       if (ctx.state === 'suspended') ctx.resume();
@@ -98,16 +91,16 @@ export function GameBoard() {
           o.stop(now + i * 0.1 + 0.3);
         });
       }
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }, [soundEnabled]);
 
-  // 정확히 7개의 채워진 병(색상이 완벽히 뒤죽박죽 섞임) + 2개의 빈 병 = 총 9개 병 세팅[span_3](start_span)[span_3](end_span)
-  const initLevel = useCallback((lv: number) => {
+  // 1. 완전히 무작위로 색상을 섞어 7개 병 + 2개 빈 병 생성
+  const initLevel = useCallback(() => {
+    // 10개 색상 중 7개 랜덤 선택
     const pool = [...VIVID_PALETTE].sort(() => Math.random() - 0.5);
-    const selectedColors = pool.slice(0, 5);
+    const selectedColors = pool.slice(0, 7);
 
+    // 각 색상당 5조각씩 총 35조각 배열 생성
     const allSegments: ColorCode[] = [];
     selectedColors.forEach((color) => {
       for (let i = 0; i < 5; i++) {
@@ -115,17 +108,19 @@ export function GameBoard() {
       }
     });
     
-    // 완벽한 무작위 셔플
+    // 완벽한 무작위 셔플 (Fisher-Yates)
     for (let i = allSegments.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [allSegments[i], allSegments[j]] = [allSegments[j], allSegments[i]];
     }
 
+    // 섞인 35조각을 7개의 병에 5개씩 분배
     const filledBottles = [];
     for (let i = 0; i < 7; i++) {
       filledBottles.push(allSegments.slice(i * 5, (i + 1) * 5));
     }
 
+    // 7개 채워진 병 + 8번, 9번 빈 병 (총 9개 고정)
     const initialBottles: GameState = [...filledBottles, [], []];
     
     setState(initialBottles);
@@ -134,7 +129,7 @@ export function GameBoard() {
     setMoves(0);
     setTimeSeconds(0);
     setIsClear(false);
-    setExtraBottleStage(0);
+    setExtraBottleStage(0); // 병 추가 상태 초기화
   }, []);
 
   const loadSettings = useCallback(() => {
@@ -142,7 +137,7 @@ export function GameBoard() {
     const savedLevel = Number(localStorage.getItem(HIGHEST_LEVEL_KEY) || "1");
     const startLevel = Math.max(1, Math.min(savedLevel, TOTAL_LEVELS));
     setLevel(startLevel);
-    initLevel(startLevel);
+    initLevel();
     setSoundEnabled(localStorage.getItem(SOUND_KEY) !== "false");
   }, [initLevel]);
 
@@ -152,21 +147,15 @@ export function GameBoard() {
 
   useEffect(() => {
     if (isClear) return;
-    timerRef.current = setInterval(() => {
-      setTimeSeconds((t) => t + 1);
-    }, 1000);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+    timerRef.current = setInterval(() => setTimeSeconds((t) => t + 1), 1000);
+    return () => clearInterval(timerRef.current!);
   }, [isClear, level]);
 
-  const capacity = 5; // 기본 병 용량 5칸
+  const capacity = 5;
 
-  // 10번째 추가된 병의 현재 용량 반환 (index 9)[span_4](start_span)[span_4](end_span)
+  // 10번째 병이 추가되었을 때, 그 병의 최대 칸수는 extraBottleStage 값에 따름
   const getBottleCapacity = (index: number) => {
-    if (index === 9) {
-      return Math.max(0, extraBottleStage);
-    }
+    if (index === 9) return Math.max(1, extraBottleStage);
     return capacity;
   };
 
@@ -176,35 +165,34 @@ export function GameBoard() {
       return;
     }
 
-    const isCompleted = state.every((b, i) => {
-      const cap = getBottleCapacity(i);
-      if (b.length === 0 || cap === 0) return true;
-      return isBottleComplete(b, cap);
+    // 게임 클리어 조건: 비어있거나, 정확히 5칸이 같은 색으로 꽉 차 있어야 함
+    const isCompleted = state.every((b) => {
+      if (b.length === 0) return true;
+      return b.length === 5 && b.every(c => c === b[0]);
     });
 
     if (isCompleted && !isClear && state.length > 0) {
       setIsClear(true);
       playSound('win');
-      const nextLevel = Math.min(level + 1, TOTAL_LEVELS);
       if (typeof window !== "undefined") {
+        const nextLevel = Math.min(level + 1, TOTAL_LEVELS);
         const currentHighest = Number(localStorage.getItem(HIGHEST_LEVEL_KEY) || "1");
         if (nextLevel > currentHighest) {
           localStorage.setItem(HIGHEST_LEVEL_KEY, String(nextLevel));
         }
       }
     }
-  }, [state, isClear, level, playSound, extraBottleStage]);
+  }, [state, isClear, level, playSound]);
 
   const showAd = (callback: () => void) => {
     alert("Watching Ad... (Ad Queue Triggered)");
-    setTimeout(() => {
-      callback();
-    }, 1000);
+    setTimeout(() => callback(), 1000);
   };
 
   const handleBottleClick = useCallback((index: number) => {
     if (isClear) return;
 
+    // 10번째 병이 생성되었으나 아직 칸 수가 0칸이면 물을 부을 수 없음 (UI상 1칸부터 시작하므로 방어 코드)
     if (index === 9 && extraBottleStage === 0) return;
 
     if (selectedIndex === null) {
@@ -229,7 +217,7 @@ export function GameBoard() {
     const destTop = getTopColor(dest);
     const destCap = getBottleCapacity(index);
 
-    if (destCap === 0 || dest.length >= destCap) {
+    if (dest.length >= destCap) {
       setSelectedIndex(index);
       return;
     }
@@ -265,14 +253,14 @@ export function GameBoard() {
       return [...b];
     });
 
-    const wasCompleteBefore = isBottleComplete(dest, destCap);
-    const willBeCompleteAfter = isBottleComplete(newDest, destCap);
+    // 방금 부은 병이 5칸짜리이고, 5칸이 같은 색으로 꽉 찼는지 확인
+    const willBeCompleteAfter = newDest.length === 5 && newDest.every(c => c === newDest[0]);
 
     setState(next);
     setMoves((m) => m + 1);
     setSelectedIndex(null);
 
-    if (!wasCompleteBefore && willBeCompleteAfter) {
+    if (willBeCompleteAfter) {
       playSound('complete');
     } else {
       playSound('pour');
@@ -287,36 +275,34 @@ export function GameBoard() {
         setHistory((prev) => prev.slice(0, -1));
         setUndoCount((prev) => prev - 1);
       } else {
-        alert("No previous moves to undo.");
+        alert("되돌릴 항목이 없습니다.");
       }
     } else {
-      showAd(() => {
-        setUndoCount(5);
-      });
+      showAd(() => setUndoCount(5));
     }
   };
 
-  // ★ 물병 추가 버튼: 누를 때마다 광고 시청 후 10번째 병의 칸수가 1칸씩 늘어남 (1 -> 2 -> 3 -> 4 -> 5칸)[span_5](start_span)[span_5](end_span)
+  // 3 & 4. 병 추가: 누를 때마다 광고 시청 후 빈 공간의 칸 수만 1칸씩 늘어남 (1칸 -> 2칸 -> 3칸 -> 4칸 -> 5칸)
   const handleAddBottle = () => {
     if (extraBottleStage >= 5) {
-      alert("Maximum bottle capacity reached (5 slots).");
+      alert("최대 5칸까지만 확장 가능합니다.");
       return;
     }
     showAd(() => {
       if (extraBottleStage === 0) {
-        // 최초 클릭 시 10번째 병 생성 및 1칸짜리 빈 공간 확보
+        // 첫 번째 Add 클릭: 10번째 빈 병 생성 (용량 1칸짜리로 시작)
         setState((prev) => [...prev, []]);
       }
       setExtraBottleStage((prev) => prev + 1);
     });
   };
 
-  const restartLevel = () => initLevel(level);
+  const restartLevel = () => initLevel();
   
   const goToLevel = (targetLevel: number) => {
     const lv = Math.max(1, Math.min(targetLevel, TOTAL_LEVELS));
     setLevel(lv);
-    initLevel(lv);
+    initLevel();
     setShowLevelSelect(false);
   };
 
@@ -330,10 +316,8 @@ export function GameBoard() {
 
   const completedSet = new Set(
     state
-      .map((b, i) => {
-        const cap = getBottleCapacity(i);
-        return cap > 0 && isBottleComplete(b, cap) ? i : -1;
-      })
+      .map((b) => (b.length === 5 && b.every(c => c === b[0]) ? 1 : 0))
+      .map((val, i) => val === 1 ? i : -1)
       .filter((i) => i !== -1)
   );
 
@@ -343,13 +327,19 @@ export function GameBoard() {
       {/* Header */}
       <header className="flex items-center justify-between px-6 pt-3 pb-1 shrink-0">
         <h1 className="text-xl font-black text-white tracking-wide">Level {level}</h1>
-        <button onClick={toggleSound} className="p-2 rounded-2xl bg-slate-800/80 shadow-inner transition-transform active:scale-95" aria-label="Toggle Sound">
-          {soundEnabled ? (
-            <span style={{ fontSize: '22px' }}>🔊</span>
-          ) : (
-            <span style={{ fontSize: '22px', filter: 'grayscale(100%) opacity(50%)' }}>🔇</span>
-          )}
-        </button>
+        <div className="flex gap-2">
+          {/* 전체화면 버튼 */}
+          <button onClick={toggleFullscreen} className="p-2 rounded-2xl bg-slate-800/80 shadow-inner transition-transform active:scale-95" aria-label="Toggle Fullscreen">
+            <span style={{ fontSize: '20px' }}>⛶</span>
+          </button>
+          <button onClick={toggleSound} className="p-2 rounded-2xl bg-slate-800/80 shadow-inner transition-transform active:scale-95" aria-label="Toggle Sound">
+            {soundEnabled ? (
+              <span style={{ fontSize: '20px' }}>🔊</span>
+            ) : (
+              <span style={{ fontSize: '20px', filter: 'grayscale(100%) opacity(50%)' }}>🔇</span>
+            )}
+          </button>
+        </div>
       </header>
 
       {/* Stats Cards */}
@@ -364,7 +354,7 @@ export function GameBoard() {
         </div>
       </div>
 
-      {/* Game Board Grid: 10개가 되면 5x2 배열로 정렬[span_6](start_span)[span_6](end_span) */}
+      {/* Game Board Grid */}
       <main className="flex flex-1 items-center justify-center px-4 py-1 overflow-hidden">
         <div className={`grid gap-3 justify-items-center items-center ${state.length >= 10 ? 'grid-cols-5' : 'grid-cols-5'}`} style={{ maxWidth: '540px', width: '100%' }}>
           {state.map((bottle, i) => (
@@ -381,7 +371,7 @@ export function GameBoard() {
         </div>
       </main>
 
-      {/* 4 Bottom Control Buttons[span_7](start_span)[span_7](end_span) */}
+      {/* Bottom Control Buttons */}
       <div className="z-30 mx-4 mb-2 shrink-0 grid grid-cols-4 gap-2 bg-slate-900/90 p-2.5 rounded-3xl shadow-2xl border border-white/10 backdrop-blur-lg">
         <button onClick={restartLevel} className="control-btn">
           <span className="text-lg mb-0.5">🔄</span>
@@ -409,7 +399,7 @@ export function GameBoard() {
         </button>
       </div>
 
-      {/* Ad Space Area[span_8](start_span)[span_8](end_span) */}
+      {/* Ad Space Area */}
       <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center text-slate-500 text-[11px] font-bold tracking-widest border-t border-white/5">
         [ AD BANNER SPACE ]
       </div>

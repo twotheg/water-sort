@@ -16,23 +16,23 @@ const HIGHEST_LEVEL_KEY = "water-sort-highest-level";
 const SOUND_KEY = "water-sort-sound";
 const TOTAL_LEVELS = 1000;
 
-// 레퍼런스 화면에 맞는 다채로운 파스텔·비비드 색상 팔레트
-const VIVID_PALETTE: ColorCode[] = [
-  "#f43f5e", // 레드/핑크
-  "#f97316", // 주황
-  "#eab308", // 노랑
-  "#22c55e", // 초록
-  "#06b6d4", // 하늘
-  "#3b82f6", // 파랑
-  "#a855f7", // 보라
-  "#ec4899", // 핫핑크
-  "#14b8a6", // 청록
-  "#84cc16", // 연두
+// 서로 절대 헷갈리지 않는 명확한 고대비 색상 10가지
+const DISTINCT_PALETTE: ColorCode[] = [
+  "#E53935", // 강렬한 빨강
+  "#1E88E5", // 뚜렷한 파랑
+  "#FDD835", // 쨍한 노랑
+  "#43A047", // 짙은 초록
+  "#8E24AA", // 짙은 보라
+  "#FB8C00", // 진한 주황
+  "#D81B60", // 핫핑크
+  "#6D4C41", // 갈색
+  "#00ACC1", // 청록(시안)
+  "#757575", // 짙은 회색
 ];
 
 export function GameBoard() {
   const [level, setLevel] = useState(1);
-  const [highestUnlocked, setHighestUnlocked] = useState(1); // ★ 클리어 진행도 추적을 위한 상태 추가
+  const [highestUnlocked, setHighestUnlocked] = useState(1);
   const [state, setState] = useState<GameState>([]);
   const [history, setHistory] = useState<GameState[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -113,9 +113,9 @@ export function GameBoard() {
     }
   }, [soundEnabled]);
 
-  // 무작위 7+2 병 세팅
+  // 무작위 7+2 병 세팅 (고대비 색상 팔레트 적용)
   const initLevel = useCallback(() => {
-    const pool = [...VIVID_PALETTE].sort(() => Math.random() - 0.5);
+    const pool = [...DISTINCT_PALETTE].sort(() => Math.random() - 0.5);
     const selectedColors = pool.slice(0, 7);
 
     const allSegments: ColorCode[] = [];
@@ -150,7 +150,7 @@ export function GameBoard() {
   const loadSettings = useCallback(() => {
     if (typeof window === "undefined") return;
     const savedLevel = Number(localStorage.getItem(HIGHEST_LEVEL_KEY) || "1");
-    setHighestUnlocked(savedLevel); // 로드 시 가장 높이 도달한 레벨 저장
+    setHighestUnlocked(savedLevel); 
     const startLevel = Math.max(1, Math.min(savedLevel, TOTAL_LEVELS));
     setLevel(startLevel);
     initLevel();
@@ -200,7 +200,7 @@ export function GameBoard() {
         const currentHighest = Number(localStorage.getItem(HIGHEST_LEVEL_KEY) || "1");
         if (nextLevel > currentHighest) {
           localStorage.setItem(HIGHEST_LEVEL_KEY, String(nextLevel));
-          setHighestUnlocked(nextLevel); // 신규 레벨 도달 시 상태 업데이트
+          setHighestUnlocked(nextLevel); 
         }
       }
     }
@@ -428,7 +428,7 @@ export function GameBoard() {
         [ AD BANNER SPACE ]
       </div>
 
-      {/* ★ Level Select Modal (색상 구분 추가) */}
+      {/* Level Select Modal */}
       {showLevelSelect && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
           <div className="flex h-[75vh] w-full max-w-md flex-col rounded-3xl bg-slate-900 p-5 shadow-2xl border border-white/10">
@@ -445,14 +445,13 @@ export function GameBoard() {
                   const isCleared = lv < highestUnlocked;
                   const isLocked = lv > highestUnlocked;
 
-                  // 상태별 컬러 매핑
-                  let btnClass = "bg-slate-700 text-white hover:bg-slate-600"; // 오픈되었으나 현재하지 않는 맵
+                  let btnClass = "bg-slate-700 text-white hover:bg-slate-600"; 
                   if (isCurrent) {
                     btnClass = "bg-sky-500 text-white border-2 border-white shadow-lg shadow-sky-500/50 scale-105";
                   } else if (isCleared) {
-                    btnClass = "bg-emerald-500/90 text-white hover:bg-emerald-400"; // 클리어 완료 (초록색)
+                    btnClass = "bg-emerald-500/90 text-white hover:bg-emerald-400"; 
                   } else if (isLocked) {
-                    btnClass = "bg-slate-800/40 text-slate-600 cursor-not-allowed"; // 잠금 (어두운 색)
+                    btnClass = "bg-slate-800/40 text-slate-600 cursor-not-allowed"; 
                   }
 
                   return (

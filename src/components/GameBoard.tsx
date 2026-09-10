@@ -16,18 +16,18 @@ const HIGHEST_LEVEL_KEY = "water-sort-highest-level";
 const SOUND_KEY = "water-sort-sound";
 const TOTAL_LEVELS = 1000;
 
-// 서로 절대 헷갈리지 않는 명확한 고대비 색상 10가지
+// 다홍색, 빨강, 주황색을 완벽하게 배제한 10가지 고대비 색상
 const DISTINCT_PALETTE: ColorCode[] = [
-  "#E53935", // 강렬한 빨강
-  "#1E88E5", // 뚜렷한 파랑
-  "#FDD835", // 쨍한 노랑
-  "#43A047", // 짙은 초록
-  "#8E24AA", // 짙은 보라
-  "#FB8C00", // 진한 주황
-  "#D81B60", // 핫핑크
-  "#6D4C41", // 갈색
-  "#00ACC1", // 청록(시안)
-  "#757575", // 짙은 회색
+  "#F48FB1", // 1. 연한 베이비 핑크 (다홍/빨강 완전 대체)
+  "#1E88E5", // 2. 뚜렷한 파랑
+  "#FDD835", // 3. 쨍한 노랑
+  "#43A047", // 4. 짙은 초록
+  "#8E24AA", // 5. 짙은 보라
+  "#283593", // 6. 묵직한 남색
+  "#C0CA33", // 7. 밝은 연두(라임)
+  "#6D4C41", // 8. 갈색
+  "#00ACC1", // 9. 청록(시안)
+  "#757575", // 10. 짙은 회색
 ];
 
 export function GameBoard() {
@@ -60,7 +60,6 @@ export function GameBoard() {
     }
   };
 
-  // ★ 물방울 떨어지는 효과음(쪼르륵)으로 완전히 업그레이드
   const playSound = useCallback((type: 'pour' | 'complete' | 'win') => {
     if (!soundEnabled || typeof window === "undefined") return;
     try {
@@ -72,16 +71,14 @@ export function GameBoard() {
       const now = ctx.currentTime;
 
       if (type === 'pour') {
-        // 물방울(Bubble)이 연속으로 떨어지는 '쪼르륵' 효과 합성
         for (let i = 0; i < 4; i++) {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           
           osc.type = "sine";
           
-          // 방울마다 주파수를 약간씩 다르게 하여 물이 차오르는 느낌 구현
           const baseFreq = 400 + (i * 150) + (Math.random() * 50);
-          const timeOffset = now + (i * 0.08); // 0.08초 간격으로 타격
+          const timeOffset = now + (i * 0.08);
           
           osc.frequency.setValueAtTime(baseFreq, timeOffset);
           osc.frequency.exponentialRampToValueAtTime(baseFreq + 200, timeOffset + 0.08);

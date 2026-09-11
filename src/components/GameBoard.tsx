@@ -12,6 +12,13 @@ import {
 import { Bottle } from "./Bottle";
 import { LevelClearModal } from "./LevelClearModal";
 
+// 구글 광고 스크립트를 위한 전역 변수 타입 선언
+declare global {
+  interface Window {
+    adsbygoogle: any;
+  }
+}
+
 const HIGHEST_LEVEL_KEY = "water-sort-highest-level";
 const SOUND_KEY = "water-sort-sound";
 const TOTAL_LEVELS = 1000;
@@ -180,6 +187,17 @@ export function GameBoard() {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [isClear, level]);
+
+  // ★ 구글 배너 광고 로드 스크립트 추가
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      }
+    } catch (err) {
+      console.error("AdSense Error", err);
+    }
+  }, []);
 
   const capacity = 5;
 
@@ -429,8 +447,14 @@ export function GameBoard() {
         </button>
       </div>
 
-      <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center text-slate-500 text-[11px] font-bold tracking-widest border-t border-white/5">
-        [ AD BANNER SPACE ]
+      {/* 실제 구글 광고 영역 */}
+      <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center border-t border-white/5 overflow-hidden">
+        <ins
+          className="adsbygoogle"
+          style={{ display: "inline-block", width: "320px", height: "50px" }}
+          data-ad-client="ca-pub-0000000000000000" // ★ 구글 애드센스/애드몹 본인 클라이언트 ID로 변경하세요
+          data-ad-slot="1234567890"               // ★ 구글 광고 슬롯 ID로 변경하세요
+        ></ins>
       </div>
 
       {showLevelSelect && (

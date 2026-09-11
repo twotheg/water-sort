@@ -1,7 +1,7 @@
 {
   "name": "Water Sort Puzzle - 물 정렬 퍼즐",
   "short_name": "물정렬 퍼즐",
-  "description": "가족과 함께하는 물 색깔 정렬 퍼즐 게임. 1000 스테이지를 클리어하세요!",
+  "description": "가족과 함께하는 물 색깔 정렬 퍼즐 게임. 300 스테이지를 클리어하세요!",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

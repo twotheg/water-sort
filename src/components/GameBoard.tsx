@@ -12,13 +12,6 @@ import {
 import { Bottle } from "./Bottle";
 import { LevelClearModal } from "./LevelClearModal";
 
-// 구글 광고 스크립트를 위한 전역 변수 타입 선언
-declare global {
-  interface Window {
-    adsbygoogle: any;
-  }
-}
-
 const HIGHEST_LEVEL_KEY = "water-sort-highest-level";
 const SOUND_KEY = "water-sort-sound";
 const TOTAL_LEVELS = 1000;
@@ -188,17 +181,6 @@ export function GameBoard() {
     };
   }, [isClear, level]);
 
-  // 구글 애드센스 로드 스크립트
-  useEffect(() => {
-    try {
-      if (typeof window !== "undefined") {
-        (window.adsbygoogle = window.adsbygoogle || []).push({});
-      }
-    } catch (err) {
-      console.error("AdSense Error", err);
-    }
-  }, []);
-
   const capacity = 5;
 
   const getBottleCapacity = (index: number) => {
@@ -213,10 +195,6 @@ export function GameBoard() {
       isInitialMount.current = false;
       return;
     }
-
-    // ★ 유일하게 추가된 무한 클리어 방지 1줄: 빈 배열일 때 오판하지 않도록 차단
-    const hasWater = state.some(b => b.length > 0);
-    if (!hasWater) return;
 
     const isCompleted = state.every((b, i) => {
       const cap = getBottleCapacity(i);
@@ -451,14 +429,8 @@ export function GameBoard() {
         </button>
       </div>
 
-      {/* 선생님 구글 애드센스 광고 영역 대체 */}
-      <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center border-t border-white/5 overflow-hidden">
-        <ins
-          className="adsbygoogle"
-          style={{ display: "inline-block", width: "320px", height: "50px" }}
-          data-ad-client="ca-pub-4424569297437395" 
-          data-ad-slot="1234567890"               
-        ></ins>
+      <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center text-slate-500 text-[11px] font-bold tracking-widest border-t border-white/5">
+        [ AD BANNER SPACE ]
       </div>
 
       {showLevelSelect && (

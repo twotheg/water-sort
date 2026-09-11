@@ -25,7 +25,7 @@ const TOTAL_LEVELS = 1000;
 
 // 다홍색, 빨강, 주황색을 완벽하게 배제한 10가지 고대비 색상
 const DISTINCT_PALETTE: ColorCode[] = [
-  "#F48FB1", // 1. 연한 베이비 핑크 (다홍/빨강 완전 대체)
+  "#F48FB1", // 1. 연한 베이비 핑크
   "#1E88E5", // 2. 뚜렷한 파랑
   "#FDD835", // 3. 쨍한 노랑
   "#43A047", // 4. 짙은 초록
@@ -208,16 +208,20 @@ export function GameBoard() {
     return capacity;
   };
 
+  // ★ 무한 클리어 버그를 해결한 완벽한 판정 로직
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
 
-    const isCompleted = state.every((b, i) => {
+    // 보드에 물이 1칸이라도 존재하는지 확인 (빈 배열 로드시 클리어 방지)
+    const hasWater = state.some(b => b.length > 0);
+
+    const isCompleted = hasWater && state.every((b, i) => {
       const cap = getBottleCapacity(i);
-      if (b.length === 0 || cap === 0) return true;
-      return isBottleComplete(b, cap);
+      if (b.length === 0 || cap === 0) return true; // 비어있는 병은 통과
+      return b.length === cap && b.every(c => c === b[0]); // 꽉 차있고, 모든 색이 동일하면 통과
     });
 
     if (isCompleted && !isClear && state.length > 0) {
@@ -304,8 +308,8 @@ export function GameBoard() {
       return [...b];
     });
 
-    const wasCompleteBefore = isBottleComplete(dest, destCap);
-    const willBeCompleteAfter = isBottleComplete(newDest, destCap);
+    const wasCompleteBefore = dest.length === destCap && dest.every(c => c === dest[0]);
+    const willBeCompleteAfter = newDest.length === destCap && newDest.every(c => c === newDest[0]);
 
     setState(next);
     setMoves((m) => m + 1);
@@ -369,7 +373,8 @@ export function GameBoard() {
     state
       .map((b, i) => {
         const cap = getBottleCapacity(i);
-        return cap > 0 && isBottleComplete(b, cap) ? i : -1;
+        const isFullAndSame = b.length > 0 && b.length === cap && b.every(c => c === b[0]);
+        return cap > 0 && isFullAndSame ? i : -1;
       })
       .filter((i) => i !== -1)
   );
@@ -447,13 +452,13 @@ export function GameBoard() {
         </button>
       </div>
 
-      {/* 실제 구글 배너 광고 영역 */}
+      {/* 선생님 구글 애드센스 광고 영역 */}
       <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center border-t border-white/5 overflow-hidden">
         <ins
           className="adsbygoogle"
           style={{ display: "inline-block", width: "320px", height: "50px" }}
-          data-ad-client="ca-pub-4424569297437395" // ★ 제공해주신 클라이언트 ID 적용 완료
-          data-ad-slot="1234567890"               // ★ 구글 애드센스 광고 슬롯 ID로 변경하세요
+          data-ad-client="ca-pub-4424569297437395" 
+          data-ad-slot="1234567890"               // ★ 애드센스에서 슬롯을 만들면 이 숫자를 교체해주세요!
         ></ins>
       </div>
 

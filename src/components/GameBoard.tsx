@@ -5,7 +5,6 @@ import { formatTime, getTopColor, type GameState, type ColorCode } from "@/lib/g
 import { Bottle } from "./Bottle";
 import { LevelClearModal } from "./LevelClearModal";
 
-// 구글 광고 스크립트를 위한 전역 변수 타입 선언
 declare global {
   interface Window {
     adsbygoogle: any;
@@ -16,18 +15,10 @@ const HIGHEST_LEVEL_KEY = "water-sort-highest-level";
 const SOUND_KEY = "water-sort-sound";
 const TOTAL_LEVELS = 1000;
 
-// 다홍색, 빨강, 주황색을 완벽하게 배제한 10가지 고대비 색상
+// 다홍색, 빨강, 주황색을 배제한 10가지 고대비 색상
 const DISTINCT_PALETTE: ColorCode[] = [
-  "#F48FB1", // 1. 연한 베이비 핑크
-  "#1E88E5", // 2. 뚜렷한 파랑
-  "#FDD835", // 3. 쨍한 노랑
-  "#43A047", // 4. 짙은 초록
-  "#8E24AA", // 5. 짙은 보라
-  "#283593", // 6. 묵직한 남색
-  "#C0CA33", // 7. 밝은 연두(라임)
-  "#6D4C41", // 8. 갈색
-  "#00ACC1", // 9. 청록(시안)
-  "#757575", // 10. 짙은 회색
+  "#F48FB1", "#1E88E5", "#FDD835", "#43A047", "#8E24AA",
+  "#283593", "#C0CA33", "#6D4C41", "#00ACC1", "#757575"
 ];
 
 export function GameBoard() {
@@ -129,7 +120,6 @@ export function GameBoard() {
       }
     });
     
-    // Vercel 빌드 환경에서도 절대 꼬이지 않는 가장 안전한 셔플 방식 적용
     for (let i = allSegments.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       const temp = allSegments[i];
@@ -177,7 +167,6 @@ export function GameBoard() {
     };
   }, [isClear, level]);
 
-  // 구글 배너 광고 로드
   useEffect(() => {
     try {
       if (typeof window !== "undefined") {
@@ -274,11 +263,11 @@ export function GameBoard() {
     setMoves((m) => m + 1);
     setSelectedIndex(null);
 
-    // ★ 무한 클리어 방지: 오직 '물을 옮겨 담은 직후'에만 클리어 여부 검사
+    // ★ 수정됨: 물을 부은 직후에만 전체가 완성되었는지 검사합니다!
     const isGameFinished = next.every((b, i) => {
       const cap = getBottleCapacity(i);
-      if (b.length === 0 || cap === 0) return true; // 빈 병은 정상 통과
-      return b.length === cap && b.every(c => c === b[0]); // 꽉 차있고, 한 색깔로 통일되었는지 검사
+      if (b.length === 0 || cap === 0) return true;
+      return b.length === cap && b.every(c => c === b[0]);
     });
 
     if (isGameFinished) {
@@ -429,13 +418,12 @@ export function GameBoard() {
         </button>
       </div>
 
-      {/* 선생님 구글 애드센스 광고 영역 */}
       <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center border-t border-white/5 overflow-hidden">
         <ins
           className="adsbygoogle"
           style={{ display: "inline-block", width: "320px", height: "50px" }}
           data-ad-client="ca-pub-4424569297437395" 
-          data-ad-slot="1234567890"               // ★ 애드센스 광고 슬롯 ID로 꼭 변경해 주세요!
+          data-ad-slot="1234567890"               
         ></ins>
       </div>
 

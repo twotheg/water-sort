@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
   formatTime,
+  getTopColor,
+  isBottleComplete,
   type GameState,
+  type PourMove,
   type ColorCode,
 } from "@/lib/game";
 import { Bottle } from "./Bottle";
@@ -19,9 +22,18 @@ const HIGHEST_LEVEL_KEY = "water-sort-highest-level";
 const SOUND_KEY = "water-sort-sound";
 const TOTAL_LEVELS = 1000;
 
+// 다홍색, 빨강, 주황색을 완벽하게 배제한 10가지 고대비 색상
 const DISTINCT_PALETTE: ColorCode[] = [
-  "#F48FB1", "#1E88E5", "#FDD835", "#43A047", "#8E24AA",
-  "#283593", "#C0CA33", "#6D4C41", "#00ACC1", "#757575"
+  "#F48FB1", // 1. 연한 베이비 핑크 (다홍/빨강 완전 대체)
+  "#1E88E5", // 2. 뚜렷한 파랑
+  "#FDD835", // 3. 쨍한 노랑
+  "#43A047", // 4. 짙은 초록
+  "#8E24AA", // 5. 짙은 보라
+  "#283593", // 6. 묵직한 남색
+  "#C0CA33", // 7. 밝은 연두(라임)
+  "#6D4C41", // 8. 갈색
+  "#00ACC1", // 9. 청록(시안)
+  "#757575", // 10. 짙은 회색
 ];
 
 export function GameBoard() {
@@ -42,10 +54,13 @@ export function GameBoard() {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const isInitialMount = useRef(true);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.warn("Fullscreen Error:", err.message);
+      });
     } else {
       document.exitFullscreen();
     }
@@ -54,26 +69,35 @@ export function GameBoard() {
   const playSound = useCallback((type: 'pour' | 'complete' | 'win') => {
     if (!soundEnabled || typeof window === "undefined") return;
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!audioCtxRef.current) audioCtxRef.current = new AudioCtx();
       const ctx = audioCtxRef.current;
       if (ctx.state === 'suspended') ctx.resume();
 
       const now = ctx.currentTime;
+
       if (type === 'pour') {
         for (let i = 0; i < 4; i++) {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
+          
           osc.type = "sine";
+          
           const baseFreq = 400 + (i * 150) + (Math.random() * 50);
           const timeOffset = now + (i * 0.08);
+          
           osc.frequency.setValueAtTime(baseFreq, timeOffset);
           osc.frequency.exponentialRampToValueAtTime(baseFreq + 200, timeOffset + 0.08);
+          
           gain.gain.setValueAtTime(0, timeOffset);
           gain.gain.linearRampToValueAtTime(0.3, timeOffset + 0.02);
           gain.gain.exponentialRampToValueAtTime(0.001, timeOffset + 0.1);
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.start(timeOffset); osc.stop(timeOffset + 0.1);
+          
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          
+          osc.start(timeOffset);
+          osc.stop(timeOffset + 0.1);
         }
       } else if (type === 'complete') {
         const osc = ctx.createOscillator();
@@ -84,8 +108,10 @@ export function GameBoard() {
         osc.frequency.setValueAtTime(783.99, now + 0.16);
         gain.gain.setValueAtTime(0.12, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.start(now); osc.stop(now + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.35);
       } else if (type === 'win') {
         [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
           const o = ctx.createOscillator();
@@ -94,11 +120,15 @@ export function GameBoard() {
           o.frequency.value = freq;
           g.gain.setValueAtTime(0.1, now + i * 0.1);
           g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.3);
-          o.connect(g); g.connect(ctx.destination);
-          o.start(now + i * 0.1); o.stop(now + i * 0.1 + 0.3);
+          o.connect(g);
+          g.connect(ctx.destination);
+          o.start(now + i * 0.1);
+          o.stop(now + i * 0.1 + 0.3);
         });
       }
-    } catch { /* ignore */ }
+    } catch {
+      // ignore
+    }
   }, [soundEnabled]);
 
   const initLevel = useCallback(() => {
@@ -114,9 +144,7 @@ export function GameBoard() {
     
     for (let i = allSegments.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      const temp = allSegments[i];
-      allSegments[i] = allSegments[j];
-      allSegments[j] = temp;
+      [allSegments[i], allSegments[j]] = [allSegments[j], allSegments[i]];
     }
 
     const filledBottles = [];
@@ -151,32 +179,74 @@ export function GameBoard() {
 
   useEffect(() => {
     if (isClear) return;
-    timerRef.current = setInterval(() => setTimeSeconds((t) => t + 1), 1000);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    timerRef.current = setInterval(() => {
+      setTimeSeconds((t) => t + 1);
+    }, 1000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [isClear, level]);
 
+  // 애드센스 배너 로드 스크립트 추가
   useEffect(() => {
     try {
       if (typeof window !== "undefined") {
         (window.adsbygoogle = window.adsbygoogle || []).push({});
       }
-    } catch (err) { console.error("AdSense Error", err); }
+    } catch (err) {
+      console.error("AdSense Error", err);
+    }
   }, []);
 
   const capacity = 5;
 
   const getBottleCapacity = (index: number) => {
-    if (index === 9) return Math.max(0, extraBottleStage);
+    if (index === 9) {
+      return Math.max(0, extraBottleStage);
+    }
     return capacity;
   };
 
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    // ★ 버그 픽스 1줄 추가: 물이 하나도 없는 빈 상태일 때는 클리어 판정을 무시합니다.
+    const hasWater = state.some(b => b.length > 0);
+    if (!hasWater) return;
+
+    const isCompleted = state.every((b, i) => {
+      const cap = getBottleCapacity(i);
+      if (b.length === 0 || cap === 0) return true;
+      return isBottleComplete(b, cap);
+    });
+
+    if (isCompleted && !isClear && state.length > 0) {
+      setIsClear(true);
+      playSound('win');
+      const nextLevel = Math.min(level + 1, TOTAL_LEVELS);
+      if (typeof window !== "undefined") {
+        const currentHighest = Number(localStorage.getItem(HIGHEST_LEVEL_KEY) || "1");
+        if (nextLevel > currentHighest) {
+          localStorage.setItem(HIGHEST_LEVEL_KEY, String(nextLevel));
+          setHighestUnlocked(nextLevel); 
+        }
+      }
+    }
+  }, [state, isClear, level, playSound, extraBottleStage]);
+
   const showAd = (callback: () => void) => {
     alert("Watching Ad... (Ad Queue Triggered)");
-    setTimeout(() => callback(), 1000);
+    setTimeout(() => {
+      callback();
+    }, 1000);
   };
 
   const handleBottleClick = useCallback((index: number) => {
     if (isClear) return;
+
     if (index === 9 && extraBottleStage === 0) return;
 
     if (selectedIndex === null) {
@@ -192,14 +262,13 @@ export function GameBoard() {
 
     const source = state[selectedIndex];
     const dest = state[index];
-    const color = source.length > 0 ? source[source.length - 1] : null;
-    
+    const color = getTopColor(source);
     if (!color) {
       setSelectedIndex(null);
       return;
     }
 
-    const destTop = dest.length > 0 ? dest[dest.length - 1] : null;
+    const destTop = getTopColor(dest);
     const destCap = getBottleCapacity(index);
 
     if (destCap === 0 || dest.length >= destCap) {
@@ -238,37 +307,19 @@ export function GameBoard() {
       return [...b];
     });
 
-    const wasCompleteBefore = dest.length === destCap && dest.every(c => c === dest[0]);
-    const willBeCompleteAfter = newDest.length === destCap && newDest.every(c => c === newDest[0]);
+    const wasCompleteBefore = isBottleComplete(dest, destCap);
+    const willBeCompleteAfter = isBottleComplete(newDest, destCap);
 
     setState(next);
     setMoves((m) => m + 1);
     setSelectedIndex(null);
 
-    // ★ 완벽 무한 클리어 방지: 오직 터치로 물을 옮긴 직후에만 클리어 검사를 합니다.
-    const isGameFinished = next.every((b, i) => {
-      const cap = getBottleCapacity(i);
-      if (b.length === 0 || cap === 0) return true;
-      return b.length === cap && b.every(c => c === b[0]);
-    });
-
-    if (isGameFinished) {
-      playSound('win');
-      setIsClear(true);
-      if (typeof window !== "undefined") {
-        const nextLevel = Math.min(level + 1, TOTAL_LEVELS);
-        const currentHighest = Number(localStorage.getItem(HIGHEST_LEVEL_KEY) || "1");
-        if (nextLevel > currentHighest) {
-          localStorage.setItem(HIGHEST_LEVEL_KEY, String(nextLevel));
-          setHighestUnlocked(nextLevel); 
-        }
-      }
-    } else if (!wasCompleteBefore && willBeCompleteAfter) {
+    if (!wasCompleteBefore && willBeCompleteAfter) {
       playSound('complete');
     } else {
       playSound('pour');
     }
-  }, [selectedIndex, state, isClear, playSound, extraBottleStage, level]);
+  }, [selectedIndex, state, isClear, playSound, extraBottleStage]);
 
   const handleUndo = () => {
     if (undoCount > 0) {
@@ -321,8 +372,7 @@ export function GameBoard() {
     state
       .map((b, i) => {
         const cap = getBottleCapacity(i);
-        const isFullAndSame = b.length > 0 && b.length === cap && b.every(c => c === b[0]);
-        return cap > 0 && isFullAndSame ? i : -1;
+        return cap > 0 && isBottleComplete(b, cap) ? i : -1;
       })
       .filter((i) => i !== -1)
   );
@@ -357,9 +407,8 @@ export function GameBoard() {
         </div>
       </div>
 
-      {/* ★ 4병만 보이던 CSS 잘림 현상 완벽 수정부: items-start와 overflow-y-auto 적용 */}
-      <main className="flex flex-1 items-start justify-center px-4 py-4 overflow-y-auto">
-        <div className={`grid gap-3 justify-items-center ${state.length >= 10 ? 'grid-cols-5' : 'grid-cols-5'}`} style={{ maxWidth: '540px', width: '100%' }}>
+      <main className="flex flex-1 items-center justify-center px-4 py-1 overflow-hidden">
+        <div className={`grid gap-3 justify-items-center items-end ${state.length >= 10 ? 'grid-cols-5' : 'grid-cols-5'}`} style={{ maxWidth: '540px', width: '100%' }}>
           {state.map((bottle, i) => (
             <Bottle
               key={i}

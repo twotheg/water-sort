@@ -12,22 +12,19 @@ import {
 import { Bottle } from "./Bottle";
 import { LevelClearModal } from "./LevelClearModal";
 
+declare global {
+  interface Window {
+    adsbygoogle: any;
+  }
+}
+
 const HIGHEST_LEVEL_KEY = "water-sort-highest-level";
 const SOUND_KEY = "water-sort-sound";
 const TOTAL_LEVELS = 1000;
 
-// 다홍색, 빨강, 주황색을 완벽하게 배제한 10가지 고대비 색상
 const DISTINCT_PALETTE: ColorCode[] = [
-  "#F48FB1", // 1. 연한 베이비 핑크 (다홍/빨강 완전 대체)
-  "#1E88E5", // 2. 뚜렷한 파랑
-  "#FDD835", // 3. 쨍한 노랑
-  "#43A047", // 4. 짙은 초록
-  "#8E24AA", // 5. 짙은 보라
-  "#283593", // 6. 묵직한 남색
-  "#C0CA33", // 7. 밝은 연두(라임)
-  "#6D4C41", // 8. 갈색
-  "#00ACC1", // 9. 청록(시안)
-  "#757575", // 10. 짙은 회색
+  "#F48FB1", "#1E88E5", "#FDD835", "#43A047", "#8E24AA",
+  "#283593", "#C0CA33", "#6D4C41", "#00ACC1", "#757575"
 ];
 
 export function GameBoard() {
@@ -181,6 +178,26 @@ export function GameBoard() {
     };
   }, [isClear, level]);
 
+  // ★ layout.tsx를 건드리지 않고 애드센스를 안전하게 불러오는 코드
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (!document.getElementById("google-adsense-script")) {
+      const script = document.createElement("script");
+      script.id = "google-adsense-script";
+      script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4424569297437395";
+      script.async = true;
+      script.crossOrigin = "anonymous";
+      document.head.appendChild(script);
+    }
+
+    try {
+      (window.adsbygoogle = window.adsbygoogle || []).push({});
+    } catch (err) {
+      console.error("AdSense Error", err);
+    }
+  }, []);
+
   const capacity = 5;
 
   const getBottleCapacity = (index: number) => {
@@ -190,13 +207,16 @@ export function GameBoard() {
     return capacity;
   };
 
+  // ★ 빈 병 오류로 인한 무한 클리어 버그 수정
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
 
-    const isCompleted = state.every((b, i) => {
+    const hasWater = state.some(b => b.length > 0);
+
+    const isCompleted = hasWater && state.every((b, i) => {
       const cap = getBottleCapacity(i);
       if (b.length === 0 || cap === 0) return true;
       return isBottleComplete(b, cap);
@@ -429,8 +449,13 @@ export function GameBoard() {
         </button>
       </div>
 
-      <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center text-slate-500 text-[11px] font-bold tracking-widest border-t border-white/5">
-        [ AD BANNER SPACE ]
+      <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center border-t border-white/5 overflow-hidden">
+        <ins
+          className="adsbygoogle"
+          style={{ display: "inline-block", width: "320px", height: "50px" }}
+          data-ad-client="ca-pub-4424569297437395"
+          data-ad-slot="1234567890" 
+        ></ins>
       </div>
 
       {showLevelSelect && (

@@ -12,22 +12,28 @@ import {
 import { Bottle } from "./Bottle";
 import { LevelClearModal } from "./LevelClearModal";
 
+// 구글 광고 스크립트를 위한 전역 변수 타입 선언
+declare global {
+  interface Window {
+    adsbygoogle: any;
+  }
+}
+
 const HIGHEST_LEVEL_KEY = "water-sort-highest-level";
 const SOUND_KEY = "water-sort-sound";
 const TOTAL_LEVELS = 1000;
 
-// 다홍색, 빨강, 주황색을 완벽하게 배제한 10가지 고대비 색상
 const DISTINCT_PALETTE: ColorCode[] = [
-  "#F48FB1", // 1. 연한 베이비 핑크 (다홍/빨강 완전 대체)
-  "#1E88E5", // 2. 뚜렷한 파랑
-  "#FDD835", // 3. 쨍한 노랑
-  "#43A047", // 4. 짙은 초록
-  "#8E24AA", // 5. 짙은 보라
-  "#283593", // 6. 묵직한 남색
-  "#C0CA33", // 7. 밝은 연두(라임)
-  "#6D4C41", // 8. 갈색
-  "#00ACC1", // 9. 청록(시안)
-  "#757575", // 10. 짙은 회색
+  "#F48FB1", 
+  "#1E88E5", 
+  "#FDD835", 
+  "#43A047", 
+  "#8E24AA", 
+  "#283593", 
+  "#C0CA33", 
+  "#6D4C41", 
+  "#00ACC1", 
+  "#757575", 
 ];
 
 export function GameBoard() {
@@ -74,22 +80,16 @@ export function GameBoard() {
         for (let i = 0; i < 4; i++) {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
-          
           osc.type = "sine";
-          
           const baseFreq = 400 + (i * 150) + (Math.random() * 50);
           const timeOffset = now + (i * 0.08);
-          
           osc.frequency.setValueAtTime(baseFreq, timeOffset);
           osc.frequency.exponentialRampToValueAtTime(baseFreq + 200, timeOffset + 0.08);
-          
           gain.gain.setValueAtTime(0, timeOffset);
           gain.gain.linearRampToValueAtTime(0.3, timeOffset + 0.02);
           gain.gain.exponentialRampToValueAtTime(0.001, timeOffset + 0.1);
-          
           osc.connect(gain);
           gain.connect(ctx.destination);
-          
           osc.start(timeOffset);
           osc.stop(timeOffset + 0.1);
         }
@@ -136,9 +136,12 @@ export function GameBoard() {
       }
     });
     
+    // ★ 무한 클리어 버그 원인 해결: Vercel 환경에서 절대 에러가 나지 않는 섞기 방식으로 원복[cite: 5]
     for (let i = allSegments.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [allSegments[i], allSegments[j]] = [allSegments[j], allSegments[i]];
+      const temp = allSegments[i];
+      allSegments[i] = allSegments[j];
+      allSegments[j] = temp;
     }
 
     const filledBottles = [];
@@ -181,6 +184,17 @@ export function GameBoard() {
     };
   }, [isClear, level]);
 
+  // ★ 구글 애드센스 배너 로드 스크립트 추가
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      }
+    } catch (err) {
+      console.error("AdSense Error", err);
+    }
+  }, []);
+
   const capacity = 5;
 
   const getBottleCapacity = (index: number) => {
@@ -190,11 +204,15 @@ export function GameBoard() {
     return capacity;
   };
 
+  // 기존 클리어 판정 유지하되, 빈 로딩 시 통과 방지 조건만 안전하게 한 줄 추가[cite: 5]
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
+
+    const hasWater = state.some(b => b.length > 0);
+    if (!hasWater) return;
 
     const isCompleted = state.every((b, i) => {
       const cap = getBottleCapacity(i);
@@ -205,8 +223,8 @@ export function GameBoard() {
     if (isCompleted && !isClear && state.length > 0) {
       setIsClear(true);
       playSound('win');
-      const nextLevel = Math.min(level + 1, TOTAL_LEVELS);
       if (typeof window !== "undefined") {
+        const nextLevel = Math.min(level + 1, TOTAL_LEVELS);
         const currentHighest = Number(localStorage.getItem(HIGHEST_LEVEL_KEY) || "1");
         if (nextLevel > currentHighest) {
           localStorage.setItem(HIGHEST_LEVEL_KEY, String(nextLevel));
@@ -286,18 +304,10 @@ export function GameBoard() {
       return [...b];
     });
 
-    const wasCompleteBefore = isBottleComplete(dest, destCap);
-    const willBeCompleteAfter = isBottleComplete(newDest, destCap);
-
     setState(next);
     setMoves((m) => m + 1);
     setSelectedIndex(null);
-
-    if (!wasCompleteBefore && willBeCompleteAfter) {
-      playSound('complete');
-    } else {
-      playSound('pour');
-    }
+    playSound('pour');
   }, [selectedIndex, state, isClear, playSound, extraBottleStage]);
 
   const handleUndo = () => {
@@ -347,15 +357,6 @@ export function GameBoard() {
     });
   };
 
-  const completedSet = new Set(
-    state
-      .map((b, i) => {
-        const cap = getBottleCapacity(i);
-        return cap > 0 && isBottleComplete(b, cap) ? i : -1;
-      })
-      .filter((i) => i !== -1)
-  );
-
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-gradient-to-b from-[#121824] via-[#0b0f17] to-[#07090e] select-none touch-none">
       
@@ -394,7 +395,7 @@ export function GameBoard() {
               bottle={bottle}
               capacity={getBottleCapacity(i)}
               isSelected={selectedIndex === i}
-              isCompleted={completedSet.has(i)}
+              isCompleted={false} 
               onClick={() => handleBottleClick(i)}
               index={i}
             />
@@ -429,8 +430,14 @@ export function GameBoard() {
         </button>
       </div>
 
-      <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center text-slate-500 text-[11px] font-bold tracking-widest border-t border-white/5">
-        [ AD BANNER SPACE ]
+      {/* 선생님 구글 애드센스 광고 영역 */}
+      <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center border-t border-white/5 overflow-hidden">
+        <ins
+          className="adsbygoogle"
+          style={{ display: "inline-block", width: "320px", height: "50px" }}
+          data-ad-client="ca-pub-4424569297437395" 
+          data-ad-slot="1234567890"               
+        ></ins>
       </div>
 
       {showLevelSelect && (

@@ -452,7 +452,7 @@ export function GameBoard() {
         <ins
           className="adsbygoogle"
           style={{ display: "inline-block", width: "320px", height: "50px" }}
-          data-ad-client="ca-pub-0000000000000000" // ★ 구글 애드센스 본인 퍼블리셔 ID로 변경하세요
+          data-ad-client="ca-pub-4424569297437395" // ★ 제공해주신 클라이언트 ID 적용 완료
           data-ad-slot="1234567890"               // ★ 구글 애드센스 광고 슬롯 ID로 변경하세요
         ></ins>
       </div>

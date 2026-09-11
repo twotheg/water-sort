@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import "./globals.css";
+import "./globals.css"; // ★ 이 줄이 빠지면 방금 전처럼 화면이 하얗게 깨집니다!
 
 export const metadata: Metadata = {
   title: "Water Sort Game",
@@ -31,15 +31,6 @@ export default function RootLayout({
       </head>
       <body className="h-full overflow-hidden bg-[#0b0f17] select-none touch-none m-0 p-0">
         {children}
-        <Script id="register-sw" strategy="afterInteractive">
-          {`
-            if ('serviceWorker' in navigator) {
-              window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js');
-              });
-            }
-          `}
-        </Script>
       </body>
     </html>
   );

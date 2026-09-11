@@ -1,14 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import {
-  formatTime,
-  getTopColor,
-  isBottleComplete,
-  type GameState,
-  type PourMove,
-  type ColorCode,
-} from "@/lib/game";
+import { formatTime, getTopColor, type GameState, type ColorCode } from "@/lib/game";
 import { Bottle } from "./Bottle";
 import { LevelClearModal } from "./LevelClearModal";
 
@@ -55,7 +48,6 @@ export function GameBoard() {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const isInitialMount = useRef(true);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -81,22 +73,16 @@ export function GameBoard() {
         for (let i = 0; i < 4; i++) {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
-          
           osc.type = "sine";
-          
           const baseFreq = 400 + (i * 150) + (Math.random() * 50);
           const timeOffset = now + (i * 0.08);
-          
           osc.frequency.setValueAtTime(baseFreq, timeOffset);
           osc.frequency.exponentialRampToValueAtTime(baseFreq + 200, timeOffset + 0.08);
-          
           gain.gain.setValueAtTime(0, timeOffset);
           gain.gain.linearRampToValueAtTime(0.3, timeOffset + 0.02);
           gain.gain.exponentialRampToValueAtTime(0.001, timeOffset + 0.1);
-          
           osc.connect(gain);
           gain.connect(ctx.destination);
-          
           osc.start(timeOffset);
           osc.stop(timeOffset + 0.1);
         }
@@ -143,9 +129,12 @@ export function GameBoard() {
       }
     });
     
+    // Vercel 빌드 환경에서도 절대 꼬이지 않는 가장 안전한 셔플 방식 적용
     for (let i = allSegments.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [allSegments[i], allSegments[j]] = [allSegments[j], allSegments[i]];
+      const temp = allSegments[i];
+      allSegments[i] = allSegments[j];
+      allSegments[j] = temp;
     }
 
     const filledBottles = [];
@@ -188,7 +177,7 @@ export function GameBoard() {
     };
   }, [isClear, level]);
 
-  // ★ 구글 배너 광고 로드 스크립트 추가
+  // 구글 배너 광고 로드
   useEffect(() => {
     try {
       if (typeof window !== "undefined") {
@@ -207,36 +196,6 @@ export function GameBoard() {
     }
     return capacity;
   };
-
-  // ★ 무한 클리어 버그를 해결한 완벽한 판정 로직
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-
-    // 보드에 물이 1칸이라도 존재하는지 확인 (빈 배열 로드시 클리어 방지)
-    const hasWater = state.some(b => b.length > 0);
-
-    const isCompleted = hasWater && state.every((b, i) => {
-      const cap = getBottleCapacity(i);
-      if (b.length === 0 || cap === 0) return true; // 비어있는 병은 통과
-      return b.length === cap && b.every(c => c === b[0]); // 꽉 차있고, 모든 색이 동일하면 통과
-    });
-
-    if (isCompleted && !isClear && state.length > 0) {
-      setIsClear(true);
-      playSound('win');
-      const nextLevel = Math.min(level + 1, TOTAL_LEVELS);
-      if (typeof window !== "undefined") {
-        const currentHighest = Number(localStorage.getItem(HIGHEST_LEVEL_KEY) || "1");
-        if (nextLevel > currentHighest) {
-          localStorage.setItem(HIGHEST_LEVEL_KEY, String(nextLevel));
-          setHighestUnlocked(nextLevel); 
-        }
-      }
-    }
-  }, [state, isClear, level, playSound, extraBottleStage]);
 
   const showAd = (callback: () => void) => {
     alert("Watching Ad... (Ad Queue Triggered)");
@@ -315,12 +274,30 @@ export function GameBoard() {
     setMoves((m) => m + 1);
     setSelectedIndex(null);
 
-    if (!wasCompleteBefore && willBeCompleteAfter) {
+    // ★ 무한 클리어 방지: 오직 '물을 옮겨 담은 직후'에만 클리어 여부 검사
+    const isGameFinished = next.every((b, i) => {
+      const cap = getBottleCapacity(i);
+      if (b.length === 0 || cap === 0) return true; // 빈 병은 정상 통과
+      return b.length === cap && b.every(c => c === b[0]); // 꽉 차있고, 한 색깔로 통일되었는지 검사
+    });
+
+    if (isGameFinished) {
+      playSound('win');
+      setIsClear(true);
+      if (typeof window !== "undefined") {
+        const nextLevel = Math.min(level + 1, TOTAL_LEVELS);
+        const currentHighest = Number(localStorage.getItem(HIGHEST_LEVEL_KEY) || "1");
+        if (nextLevel > currentHighest) {
+          localStorage.setItem(HIGHEST_LEVEL_KEY, String(nextLevel));
+          setHighestUnlocked(nextLevel); 
+        }
+      }
+    } else if (!wasCompleteBefore && willBeCompleteAfter) {
       playSound('complete');
     } else {
       playSound('pour');
     }
-  }, [selectedIndex, state, isClear, playSound, extraBottleStage]);
+  }, [selectedIndex, state, isClear, playSound, extraBottleStage, level]);
 
   const handleUndo = () => {
     if (undoCount > 0) {
@@ -458,7 +435,7 @@ export function GameBoard() {
           className="adsbygoogle"
           style={{ display: "inline-block", width: "320px", height: "50px" }}
           data-ad-client="ca-pub-4424569297437395" 
-          data-ad-slot="1234567890"               // ★ 애드센스에서 슬롯을 만들면 이 숫자를 교체해주세요!
+          data-ad-slot="1234567890"               // ★ 애드센스 광고 슬롯 ID로 꼭 변경해 주세요!
         ></ins>
       </div>
 

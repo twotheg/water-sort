@@ -447,13 +447,13 @@ export function GameBoard() {
         </button>
       </div>
 
-      {/* 실제 구글 광고 영역 */}
+      {/* 실제 구글 배너 광고 영역 */}
       <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center border-t border-white/5 overflow-hidden">
         <ins
           className="adsbygoogle"
           style={{ display: "inline-block", width: "320px", height: "50px" }}
-          data-ad-client="ca-pub-0000000000000000" // ★ 구글 애드센스/애드몹 본인 클라이언트 ID로 변경하세요
-          data-ad-slot="1234567890"               // ★ 구글 광고 슬롯 ID로 변경하세요
+          data-ad-client="ca-pub-0000000000000000" // ★ 구글 애드센스 본인 퍼블리셔 ID로 변경하세요
+          data-ad-slot="1234567890"               // ★ 구글 애드센스 광고 슬롯 ID로 변경하세요
         ></ins>
       </div>
 

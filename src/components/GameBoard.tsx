@@ -12,13 +12,6 @@ import {
 import { Bottle } from "./Bottle";
 import { LevelClearModal } from "./LevelClearModal";
 
-// 구글 광고 스크립트를 위한 전역 변수 타입 선언
-declare global {
-  interface Window {
-    adsbygoogle: any;
-  }
-}
-
 const HIGHEST_LEVEL_KEY = "water-sort-highest-level";
 const SOUND_KEY = "water-sort-sound";
 const TOTAL_LEVELS = 1000;
@@ -188,17 +181,6 @@ export function GameBoard() {
     };
   }, [isClear, level]);
 
-  // 애드센스 배너 로드 스크립트
-  useEffect(() => {
-    try {
-      if (typeof window !== "undefined") {
-        (window.adsbygoogle = window.adsbygoogle || []).push({});
-      }
-    } catch (err) {
-      console.error("AdSense Error", err);
-    }
-  }, []);
-
   const capacity = 5;
 
   const getBottleCapacity = (index: number) => {
@@ -208,25 +190,16 @@ export function GameBoard() {
     return capacity;
   };
 
-  // ★ 가장 치명적이었던 무한 클리어 버그 완벽 수정부
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
 
-    // [핵심 로직] 게임판 전체에 들어있는 물의 양을 계산합니다.
-    const totalWaterCount = state.reduce((acc, bottle) => acc + bottle.length, 0);
-    
-    // 만약 물이 0개라면 (페이지 초기 빈 배열 로딩 상태), 클리어 검사를 즉시 중단합니다. 
-    // 이 한 줄로 무한 클리어 버그와 병이 안 보이는 증상이 100% 해결됩니다.
-    if (totalWaterCount === 0) return;
-
     const isCompleted = state.every((b, i) => {
       const cap = getBottleCapacity(i);
       if (b.length === 0 || cap === 0) return true;
-      // b.every를 통해 병 안의 색이 모두 같은지 명확하게 검사
-      return b.length === cap && b.every(c => c === b[0]);
+      return isBottleComplete(b, cap);
     });
 
     if (isCompleted && !isClear && state.length > 0) {
@@ -378,8 +351,7 @@ export function GameBoard() {
     state
       .map((b, i) => {
         const cap = getBottleCapacity(i);
-        const isFullAndSame = b.length > 0 && b.length === cap && b.every(c => c === b[0]);
-        return cap > 0 && isFullAndSame ? i : -1;
+        return cap > 0 && isBottleComplete(b, cap) ? i : -1;
       })
       .filter((i) => i !== -1)
   );
@@ -457,14 +429,8 @@ export function GameBoard() {
         </button>
       </div>
 
-      {/* 선생님의 ID가 적용된 애드센스 하단 배너 (data-ad-slot만 구글 콘솔 번호로 변경하시면 됩니다) */}
-      <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center border-t border-white/5 overflow-hidden">
-        <ins
-          className="adsbygoogle"
-          style={{ display: "inline-block", width: "320px", height: "50px" }}
-          data-ad-client="ca-pub-4424569297437395" 
-          data-ad-slot="1234567890"               
-        ></ins>
+      <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center text-slate-500 text-[11px] font-bold tracking-widest border-t border-white/5">
+        [ AD BANNER SPACE ]
       </div>
 
       {showLevelSelect && (

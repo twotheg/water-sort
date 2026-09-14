@@ -71,22 +71,16 @@ export function GameBoard() {
         for (let i = 0; i < 4; i++) {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
-          
           osc.type = "sine";
-          
           const baseFreq = 400 + (i * 150) + (Math.random() * 50);
           const timeOffset = now + (i * 0.08);
-          
           osc.frequency.setValueAtTime(baseFreq, timeOffset);
           osc.frequency.exponentialRampToValueAtTime(baseFreq + 200, timeOffset + 0.08);
-          
           gain.gain.setValueAtTime(0, timeOffset);
           gain.gain.linearRampToValueAtTime(0.3, timeOffset + 0.02);
           gain.gain.exponentialRampToValueAtTime(0.001, timeOffset + 0.1);
-          
           osc.connect(gain);
           gain.connect(ctx.destination);
-          
           osc.start(timeOffset);
           osc.stop(timeOffset + 0.1);
         }
@@ -178,21 +172,12 @@ export function GameBoard() {
     };
   }, [isClear, level]);
 
-  // ★ layout.tsx를 건드리지 않고 애드센스를 안전하게 불러오는 코드
+  // 애드센스 화면 렌더링 후 로드
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    if (!document.getElementById("google-adsense-script")) {
-      const script = document.createElement("script");
-      script.id = "google-adsense-script";
-      script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4424569297437395";
-      script.async = true;
-      script.crossOrigin = "anonymous";
-      document.head.appendChild(script);
-    }
-
     try {
-      (window.adsbygoogle = window.adsbygoogle || []).push({});
+      if (typeof window !== "undefined") {
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      }
     } catch (err) {
       console.error("AdSense Error", err);
     }
@@ -207,16 +192,17 @@ export function GameBoard() {
     return capacity;
   };
 
-  // ★ 빈 병 오류로 인한 무한 클리어 버그 수정
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
 
+    // ★ 무한 클리어 방어 1줄: 게임 보드에 물이 1칸이라도 존재할 때만 클리어 검사 진행
     const hasWater = state.some(b => b.length > 0);
+    if (!hasWater) return;
 
-    const isCompleted = hasWater && state.every((b, i) => {
+    const isCompleted = state.every((b, i) => {
       const cap = getBottleCapacity(i);
       if (b.length === 0 || cap === 0) return true;
       return isBottleComplete(b, cap);
@@ -453,8 +439,8 @@ export function GameBoard() {
         <ins
           className="adsbygoogle"
           style={{ display: "inline-block", width: "320px", height: "50px" }}
-          data-ad-client="ca-pub-4424569297437395"
-          data-ad-slot="1234567890" 
+          data-ad-client="ca-pub-4424569297437395" 
+          data-ad-slot="1234567890"               
         ></ins>
       </div>
 

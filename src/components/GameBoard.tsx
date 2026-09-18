@@ -440,7 +440,7 @@ export function GameBoard() {
           className="adsbygoogle"
           style={{ display: "inline-block", width: "320px", height: "50px" }}
           data-ad-client="ca-pub-4424569297437395" 
-          data-ad-slot="1234567890"               
+          data-ad-slot="5826447794"               
         ></ins>
       </div>
 

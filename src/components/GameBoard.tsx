@@ -43,6 +43,11 @@ export function GameBoard() {
   const [extraBottleStage, setExtraBottleStage] = useState(0); 
   const [showLevelSelect, setShowLevelSelect] = useState(false);
 
+  // ★ 팝업 광고창을 위한 상태 변수 추가
+  const [adModalVisible, setAdModalVisible] = useState(false);
+  const [adCountdown, setAdCountdown] = useState(5);
+  const rewardCallbackRef = useRef<(() => void) | null>(null);
+
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const isInitialMount = useRef(true);
@@ -163,25 +168,45 @@ export function GameBoard() {
   }, [loadSettings]);
 
   useEffect(() => {
-    if (isClear) return;
+    if (isClear || adModalVisible) return; // 광고 시청 중에는 타이머 정지
     timerRef.current = setInterval(() => {
       setTimeSeconds((t) => t + 1);
     }, 1000);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isClear, level]);
+  }, [isClear, level, adModalVisible]);
 
-  // 애드센스 화면 렌더링 후 로드
+  // 화면 첫 로딩 시 하단 배너용 애드센스 푸시
   useEffect(() => {
     try {
       if (typeof window !== "undefined") {
         (window.adsbygoogle = window.adsbygoogle || []).push({});
       }
     } catch (err) {
-      console.error("AdSense Error", err);
+      console.error("Banner AdSense Error", err);
     }
   }, []);
+
+  // ★ 팝업창이 켜졌을 때 팝업용 애드센스 푸시 및 카운트다운 타이머
+  useEffect(() => {
+    if (adModalVisible) {
+      try {
+        if (typeof window !== "undefined") {
+          (window.adsbygoogle = window.adsbygoogle || []).push({});
+        }
+      } catch (err) {
+        console.error("Popup AdSense Error", err);
+      }
+    }
+  }, [adModalVisible]);
+
+  useEffect(() => {
+    if (adModalVisible && adCountdown > 0) {
+      const timer = setTimeout(() => setAdCountdown(c => c - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [adModalVisible, adCountdown]);
 
   const capacity = 5;
 
@@ -198,7 +223,6 @@ export function GameBoard() {
       return;
     }
 
-    // ★ 무한 클리어 방어 1줄: 게임 보드에 물이 1칸이라도 존재할 때만 클리어 검사 진행
     const hasWater = state.some(b => b.length > 0);
     if (!hasWater) return;
 
@@ -222,15 +246,15 @@ export function GameBoard() {
     }
   }, [state, isClear, level, playSound, extraBottleStage]);
 
+  // ★ 기존 단순 alert 코드를 실제 팝업창 호출 코드로 교체
   const showAd = (callback: () => void) => {
-    alert("Watching Ad... (Ad Queue Triggered)");
-    setTimeout(() => {
-      callback();
-    }, 1000);
+    rewardCallbackRef.current = callback;
+    setAdCountdown(5); // 5초 대기 세팅
+    setAdModalVisible(true); // 팝업창 열기
   };
 
   const handleBottleClick = useCallback((index: number) => {
-    if (isClear) return;
+    if (isClear || adModalVisible) return; // 광고 시청 중엔 게임 조작 불가
 
     if (index === 9 && extraBottleStage === 0) return;
 
@@ -304,7 +328,7 @@ export function GameBoard() {
     } else {
       playSound('pour');
     }
-  }, [selectedIndex, state, isClear, playSound, extraBottleStage]);
+  }, [selectedIndex, state, isClear, playSound, extraBottleStage, adModalVisible]);
 
   const handleUndo = () => {
     if (undoCount > 0) {
@@ -435,6 +459,7 @@ export function GameBoard() {
         </button>
       </div>
 
+      {/* 하단 고정 배너 영역 */}
       <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center border-t border-white/5 overflow-hidden">
         <ins
           className="adsbygoogle"
@@ -443,6 +468,40 @@ export function GameBoard() {
           data-ad-slot="5826447794"               
         ></ins>
       </div>
+
+      {/* ★ 전면 팝업 광고 모달 영역 추가 */}
+      {adModalVisible && (
+        <div className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-black/95 p-4 backdrop-blur-sm touch-auto">
+          <h3 className="text-xl font-bold text-white mb-6">
+            {adCountdown > 0 ? `광고 시청 중... ${adCountdown}초` : "보상이 준비되었습니다!"}
+          </h3>
+          
+          <div className="w-[300px] h-[250px] bg-slate-800 flex items-center justify-center mb-8 border border-white/10 rounded-xl overflow-hidden">
+            <ins
+              className="adsbygoogle"
+              style={{ display: "inline-block", width: "300px", height: "250px" }}
+              data-ad-client="ca-pub-4424569297437395"
+              data-ad-slot="7462963097"
+            ></ins>
+          </div>
+
+          {adCountdown === 0 ? (
+            <button
+              onClick={() => {
+                if (rewardCallbackRef.current) rewardCallbackRef.current(); // 보상(실제 로직) 실행
+                setAdModalVisible(false); // 창 닫기
+              }}
+              className="px-8 py-3 bg-sky-500 text-white font-bold rounded-full shadow-lg shadow-sky-500/50 scale-105 transition-transform"
+            >
+              보상 받기 및 닫기
+            </button>
+          ) : (
+            <button disabled className="px-8 py-3 bg-slate-700 text-slate-400 font-bold rounded-full cursor-not-allowed">
+              잠시만 기다려주세요
+            </button>
+          )}
+        </div>
+      )}
 
       {showLevelSelect && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">

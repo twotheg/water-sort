@@ -1,0 +1,11 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.twotheg.watersortnew",
+      "sha256_cert_fingerprints":
+        ["3F:DC:74:F5:87:A4:66:2A:56:63:EA:B6:68:E9:37:E8:DC:B8:F9:46:F1:8B:82:39:D8:F8:34:59:CC:85:90:C4"]
+    }
+  }
+]

@@ -43,7 +43,7 @@ export function GameBoard() {
   const [extraBottleStage, setExtraBottleStage] = useState(0); 
   const [showLevelSelect, setShowLevelSelect] = useState(false);
 
-  // ★ 팝업 광고창을 위한 상태 변수 추가
+  // 팝업 광고 상태
   const [adModalVisible, setAdModalVisible] = useState(false);
   const [adCountdown, setAdCountdown] = useState(5);
   const rewardCallbackRef = useRef<(() => void) | null>(null);
@@ -111,7 +111,7 @@ export function GameBoard() {
           g.gain.setValueAtTime(0.1, now + i * 0.1);
           g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.3);
           o.connect(g);
-          g.connect(ctx.destination);
+          gain.connect(ctx.destination);
           o.start(now + i * 0.1);
           o.stop(now + i * 0.1 + 0.3);
         });
@@ -168,7 +168,7 @@ export function GameBoard() {
   }, [loadSettings]);
 
   useEffect(() => {
-    if (isClear || adModalVisible) return; // 광고 시청 중에는 타이머 정지
+    if (isClear || adModalVisible) return;
     timerRef.current = setInterval(() => {
       setTimeSeconds((t) => t + 1);
     }, 1000);
@@ -177,7 +177,7 @@ export function GameBoard() {
     };
   }, [isClear, level, adModalVisible]);
 
-  // 화면 첫 로딩 시 하단 배너용 애드센스 푸시
+  // 하단 배너 광고 실행
   useEffect(() => {
     try {
       if (typeof window !== "undefined") {
@@ -188,7 +188,7 @@ export function GameBoard() {
     }
   }, []);
 
-  // ★ 팝업창이 켜졌을 때 팝업용 애드센스 푸시 및 카운트다운 타이머
+  // 팝업 광고 실행
   useEffect(() => {
     if (adModalVisible) {
       try {
@@ -246,15 +246,14 @@ export function GameBoard() {
     }
   }, [state, isClear, level, playSound, extraBottleStage]);
 
-  // ★ 기존 단순 alert 코드를 실제 팝업창 호출 코드로 교체
   const showAd = (callback: () => void) => {
     rewardCallbackRef.current = callback;
-    setAdCountdown(5); // 5초 대기 세팅
-    setAdModalVisible(true); // 팝업창 열기
+    setAdCountdown(5);
+    setAdModalVisible(true);
   };
 
   const handleBottleClick = useCallback((index: number) => {
-    if (isClear || adModalVisible) return; // 광고 시청 중엔 게임 조작 불가
+    if (isClear || adModalVisible) return;
 
     if (index === 9 && extraBottleStage === 0) return;
 
@@ -387,89 +386,146 @@ export function GameBoard() {
   );
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-gradient-to-b from-[#121824] via-[#0b0f17] to-[#07090e] select-none touch-none">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#121824] via-[#0b0f17] to-[#07090e] select-none text-slate-200">
       
-      <header className="flex items-center justify-between px-6 pt-3 pb-1 shrink-0">
-        <h1 className="text-xl font-black text-white tracking-wide">Level {level}</h1>
-        <div className="flex gap-2">
-          <button onClick={toggleFullscreen} className="p-2 rounded-2xl bg-slate-800/80 shadow-inner transition-transform active:scale-95" aria-label="Toggle Fullscreen">
-            <span style={{ fontSize: '20px' }}>⛶</span>
+      {/* 상단 메인 게임 영역 (화면 채움) */}
+      <div className="flex flex-col h-[100dvh] max-h-[860px] w-full max-w-lg mx-auto shrink-0 overflow-hidden">
+        <header className="flex items-center justify-between px-6 pt-3 pb-1 shrink-0">
+          <h1 className="text-xl font-black text-white tracking-wide">Level {level}</h1>
+          <div className="flex gap-2">
+            <button onClick={toggleFullscreen} className="p-2 rounded-2xl bg-slate-800/80 shadow-inner transition-transform active:scale-95" aria-label="Toggle Fullscreen">
+              <span style={{ fontSize: '20px' }}>⛶</span>
+            </button>
+            <button onClick={toggleSound} className="p-2 rounded-2xl bg-slate-800/80 shadow-inner transition-transform active:scale-95" aria-label="Toggle Sound">
+              {soundEnabled ? (
+                <span style={{ fontSize: '20px' }}>🔊</span>
+              ) : (
+                <span style={{ fontSize: '20px', filter: 'grayscale(100%) opacity(50%)' }}>🔇</span>
+              )}
+            </button>
+          </div>
+        </header>
+
+        <div className="mx-6 grid grid-cols-2 gap-3 mb-1 shrink-0">
+          <div className="rounded-2xl bg-slate-800/60 p-2 text-center shadow-lg border border-white/5 backdrop-blur-md">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Moves</p>
+            <p className="text-base font-extrabold text-white">{moves}</p>
+          </div>
+          <div className="rounded-2xl bg-slate-800/60 p-2 text-center shadow-lg border border-white/5 backdrop-blur-md">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Time</p>
+            <p className="text-base font-extrabold text-white">{formatTime(timeSeconds)}</p>
+          </div>
+        </div>
+
+        <main className="flex flex-1 items-center justify-center px-4 py-1 overflow-hidden">
+          <div className={`grid gap-3 justify-items-center items-end ${state.length >= 10 ? 'grid-cols-5' : 'grid-cols-5'}`} style={{ maxWidth: '540px', width: '100%' }}>
+            {state.map((bottle, i) => (
+              <Bottle
+                key={i}
+                bottle={bottle}
+                capacity={getBottleCapacity(i)}
+                isSelected={selectedIndex === i}
+                isCompleted={completedSet.has(i)}
+                onClick={() => handleBottleClick(i)}
+                index={i}
+              />
+            ))}
+          </div>
+        </main>
+
+        <div className="z-30 mx-4 mb-2 shrink-0 grid grid-cols-4 gap-2 bg-slate-900/90 p-2.5 rounded-3xl shadow-2xl border border-white/10 backdrop-blur-lg">
+          <button onClick={restartLevel} className="control-btn">
+            <span className="text-lg mb-0.5">🔄</span>
+            <span>Restart</span>
           </button>
-          <button onClick={toggleSound} className="p-2 rounded-2xl bg-slate-800/80 shadow-inner transition-transform active:scale-95" aria-label="Toggle Sound">
-            {soundEnabled ? (
-              <span style={{ fontSize: '20px' }}>🔊</span>
-            ) : (
-              <span style={{ fontSize: '20px', filter: 'grayscale(100%) opacity(50%)' }}>🔇</span>
+          <button onClick={handleUndo} className="control-btn relative">
+            <span className="text-lg mb-0.5">⏪</span>
+            <span>Undo</span>
+            <div className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-md border-2 border-slate-900">
+              {undoCount}
+            </div>
+          </button>
+          <button onClick={handleAddBottle} className="control-btn relative">
+            <span className="text-lg mb-0.5">🧪</span>
+            <span>Add</span>
+            {extraBottleStage > 0 && (
+               <div className="absolute -top-1.5 -right-1.5 bg-emerald-500 text-white text-[9px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-md border-2 border-slate-900">
+                 {extraBottleStage}/5
+               </div>
             )}
           </button>
+          <button onClick={() => setShowLevelSelect(true)} className="control-btn">
+            <span className="text-lg mb-0.5">🎯</span>
+            <span>Stage</span>
+          </button>
         </div>
-      </header>
 
-      <div className="mx-6 grid grid-cols-2 gap-3 mb-1 shrink-0">
-        <div className="rounded-2xl bg-slate-800/60 p-2 text-center shadow-lg border border-white/5 backdrop-blur-md">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Moves</p>
-          <p className="text-base font-extrabold text-white">{moves}</p>
-        </div>
-        <div className="rounded-2xl bg-slate-800/60 p-2 text-center shadow-lg border border-white/5 backdrop-blur-md">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Time</p>
-          <p className="text-base font-extrabold text-white">{formatTime(timeSeconds)}</p>
+        {/* 하단 고정 배너 영역 */}
+        <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center border-t border-white/5 overflow-hidden">
+          <ins
+            className="adsbygoogle"
+            style={{ display: "inline-block", width: "320px", height: "50px" }}
+            data-ad-client="ca-pub-4424569297437395" 
+            data-ad-slot="5826447794"               
+          ></ins>
         </div>
       </div>
 
-      <main className="flex flex-1 items-center justify-center px-4 py-1 overflow-hidden">
-        <div className={`grid gap-3 justify-items-center items-end ${state.length >= 10 ? 'grid-cols-5' : 'grid-cols-5'}`} style={{ maxWidth: '540px', width: '100%' }}>
-          {state.map((bottle, i) => (
-            <Bottle
-              key={i}
-              bottle={bottle}
-              capacity={getBottleCapacity(i)}
-              isSelected={selectedIndex === i}
-              isCompleted={completedSet.has(i)}
-              onClick={() => handleBottleClick(i)}
-              index={i}
-            />
-          ))}
-        </div>
-      </main>
+      {/* 애드센스 심사 통과를 위한 텍스트 콘텐츠 가이드 영역 (스크롤 다운) */}
+      <section className="w-full max-w-2xl mx-auto px-6 py-12 text-slate-300 text-sm leading-relaxed border-t border-white/10 mt-6 select-text">
+        <article className="space-y-6">
+          <header>
+            <h2 className="text-2xl font-bold text-white mb-2">Water Sort Puzzle: 색상 정렬 두뇌 트레이닝 게임</h2>
+            <p className="text-slate-400">
+              워터 소트 퍼즐은 시험관 속 뒤섞인 액체들을 같은 색상끼리 분리하여 각각의 병에 채워 넣는 클래식 캐주얼 로직 퍼즐 게임입니다.
+            </p>
+          </header>
 
-      <div className="z-30 mx-4 mb-2 shrink-0 grid grid-cols-4 gap-2 bg-slate-900/90 p-2.5 rounded-3xl shadow-2xl border border-white/10 backdrop-blur-lg">
-        <button onClick={restartLevel} className="control-btn">
-          <span className="text-lg mb-0.5">🔄</span>
-          <span>Restart</span>
-        </button>
-        <button onClick={handleUndo} className="control-btn relative">
-          <span className="text-lg mb-0.5">⏪</span>
-          <span>Undo</span>
-          <div className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-md border-2 border-slate-900">
-            {undoCount}
+          <hr className="border-white/10" />
+
+          <div>
+            <h3 className="text-lg font-bold text-sky-400 mb-2">🎮 기본 게임 규칙</h3>
+            <ul className="list-disc list-inside space-y-1.5 text-slate-300">
+              <li>물을 붓고자 하는 병을 먼저 터치하여 선택한 후, 이동할 목표 병을 터치합니다.</li>
+              <li>목표 병의 최상단 색상과 이동할 물의 색상이 일치해야만 물을 부을 수 있습니다.</li>
+              <li>목표 병에 남아있는 빈 공간 용량만큼만 물이 이동합니다.</li>
+              <li>완전히 빈 시험관에는 어떤 색상의 물이든 자유롭게 부을 수 있습니다.</li>
+              <li>모든 시험관이 한 가지 색상으로만 완전히 채워지면 스테이지를 클리어합니다.</li>
+            </ul>
           </div>
-        </button>
-        <button onClick={handleAddBottle} className="control-btn relative">
-          <span className="text-lg mb-0.5">🧪</span>
-          <span>Add</span>
-          {extraBottleStage > 0 && (
-             <div className="absolute -top-1.5 -right-1.5 bg-emerald-500 text-white text-[9px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-md border-2 border-slate-900">
-               {extraBottleStage}/5
-             </div>
-          )}
-        </button>
-        <button onClick={() => setShowLevelSelect(true)} className="control-btn">
-          <span className="text-lg mb-0.5">🎯</span>
-          <span>Stage</span>
-        </button>
-      </div>
 
-      {/* 하단 고정 배너 영역 */}
-      <div className="h-12 bg-black/80 shrink-0 flex justify-center items-center border-t border-white/5 overflow-hidden">
-        <ins
-          className="adsbygoogle"
-          style={{ display: "inline-block", width: "320px", height: "50px" }}
-          data-ad-client="ca-pub-4424569297437395" 
-          data-ad-slot="5826447794"               
-        ></ins>
-      </div>
+          <div>
+            <h3 className="text-lg font-bold text-sky-400 mb-2">💡 퍼즐 클리어를 위한 전략 가이드</h3>
+            <p className="mb-2">
+              스테이지가 올라갈수록 색상의 수와 시험관의 배치가 복잡해집니다. 막히지 않고 높은 스테이지로 나아가기 위한 핵심 팁을 소개합니다:
+            </p>
+            <ol className="list-decimal list-inside space-y-1.5 text-slate-300">
+              <li><strong>빈 시험관 우선 확보:</strong> 빈 시험관은 임시 버퍼 역할을 합니다. 불필요하게 빈 병을 채우기보다 핵심 색상을 분리할 공간으로 아껴두세요.</li>
+              <li><strong>바닥 색상 파악하기:</strong> 병의 가장 아래쪽에 깔려 있는 색상을 먼저 확인하고, 같은 색상의 물을 빠르게 한 병으로 모으는 것이 효율적입니다.</li>
+              <li><strong>보조 도구 활용:</strong> 실수를 했을 때는 좌측 하단의 <em>Undo</em>(되돌리기) 버튼을 활용하고, 배치가 꼬여 해결이 어려울 때는 <em>Add</em> 버튼으로 보조 슬롯을 개방하세요.</li>
+            </ol>
+          </div>
 
-      {/* ★ 전면 팝업 광고 모달 영역 추가 */}
+          <div>
+            <h3 className="text-lg font-bold text-sky-400 mb-2">🧠 인지 능력 향상 효과</h3>
+            <p>
+              물 정렬 퍼즐은 단순한 킬링타임용 게임을 넘어 공간 지각력, 문제 해결 능력, 그리고 단기 기억력을 자극하는 두뇌 트레이닝 콘텐츠입니다. 다음 수순을 미리 예측하고 계획하는 과정을 통해 논리적 사고력을 기를 수 있습니다.
+            </p>
+          </div>
+
+          <footer className="pt-8 border-t border-white/10 text-xs text-slate-400 space-y-2">
+            <p>© 2026 Water Sort Game. All rights reserved.</p>
+            <div className="flex gap-4">
+              <a href="/privacy.html" className="text-sky-400 hover:underline">개인정보처리방침 (Privacy Policy)</a>
+              <span>|</span>
+              <a href="/ads.txt" className="text-sky-400 hover:underline">Ads.txt</a>
+            </div>
+            <p className="text-slate-500">문의: twotheg@gmail.com</p>
+          </footer>
+        </article>
+      </section>
+
+      {/* 전면 팝업 광고 모달 */}
       {adModalVisible && (
         <div className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-black/95 p-4 backdrop-blur-sm touch-auto">
           <h3 className="text-xl font-bold text-white mb-6">
@@ -488,8 +544,8 @@ export function GameBoard() {
           {adCountdown === 0 ? (
             <button
               onClick={() => {
-                if (rewardCallbackRef.current) rewardCallbackRef.current(); // 보상(실제 로직) 실행
-                setAdModalVisible(false); // 창 닫기
+                if (rewardCallbackRef.current) rewardCallbackRef.current();
+                setAdModalVisible(false);
               }}
               className="px-8 py-3 bg-sky-500 text-white font-bold rounded-full shadow-lg shadow-sky-500/50 scale-105 transition-transform"
             >
@@ -503,6 +559,7 @@ export function GameBoard() {
         </div>
       )}
 
+      {/* 스테이지 선택 모달 */}
       {showLevelSelect && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
           <div className="flex h-[75vh] w-full max-w-md flex-col rounded-3xl bg-slate-900 p-5 shadow-2xl border border-white/10">

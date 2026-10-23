@@ -111,7 +111,7 @@ export function GameBoard() {
           g.gain.setValueAtTime(0.1, now + i * 0.1);
           g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.3);
           o.connect(g);
-          gain.connect(ctx.destination);
+          g.connect(ctx.destination);
           o.start(now + i * 0.1);
           o.stop(now + i * 0.1 + 0.3);
         });
